@@ -277,6 +277,8 @@ const de = {
   'admin.update.failed': 'Update fehlgeschlagen',
   'admin.update.backupHint': 'Wir empfehlen, vor dem Update ein Backup zu erstellen und herunterzuladen.',
   'admin.update.backupLink': 'Zum Backup',
+  'admin.update.howTo': 'Update-Anleitung',
+  'admin.update.dockerText': 'Deine NOMAD-Instanz läuft in Docker. Um auf {version} zu aktualisieren, führe folgende Befehle auf deinem Server aus:',
   'admin.update.reloadHint': 'Bitte lade die Seite in wenigen Sekunden neu.',
 
   // Vacay addon

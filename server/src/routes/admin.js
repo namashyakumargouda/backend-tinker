@@ -156,6 +156,14 @@ router.post('/save-demo-baseline', (req, res) => {
 
 // ── Version check ──────────────────────────────────────────
 
+// Detect if running inside Docker
+const isDocker = (() => {
+  try {
+    const fs = require('fs');
+    return fs.existsSync('/.dockerenv') || (fs.existsSync('/proc/1/cgroup') && fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker'));
+  } catch { return false }
+})();
+
 router.get('/version-check', async (req, res) => {
   const { version: currentVersion } = require('../../package.json');
   try {
@@ -167,9 +175,9 @@ router.get('/version-check', async (req, res) => {
     const data = await resp.json();
     const latest = (data.tag_name || '').replace(/^v/, '');
     const update_available = latest && latest !== currentVersion && compareVersions(latest, currentVersion) > 0;
-    res.json({ current: currentVersion, latest, update_available, release_url: data.html_url || '' });
+    res.json({ current: currentVersion, latest, update_available, release_url: data.html_url || '', is_docker: isDocker });
   } catch {
-    res.json({ current: currentVersion, latest: currentVersion, update_available: false });
+    res.json({ current: currentVersion, latest: currentVersion, update_available: false, is_docker: isDocker });
   }
 });
 

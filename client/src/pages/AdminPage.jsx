@@ -277,13 +277,23 @@ export default function AdminPage() {
                     {t('admin.update.button')}
                   </a>
                 )}
-                <button
-                  onClick={() => setShowUpdateModal(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-gray-200"
-                >
-                  <Download className="w-4 h-4" />
-                  {t('admin.update.install')}
-                </button>
+                {updateInfo.is_docker ? (
+                  <button
+                    onClick={() => setShowUpdateModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-gray-200"
+                  >
+                    <Download className="w-4 h-4" />
+                    {t('admin.update.howTo')}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowUpdateModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-gray-200"
+                  >
+                    <Download className="w-4 h-4" />
+                    {t('admin.update.install')}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -874,42 +884,74 @@ export default function AdminPage() {
 
                 {/* Body */}
                 <div style={{ padding: '20px 24px' }}>
-                  <p className="text-gray-700 dark:text-gray-300" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>
-                    {updateInfo && t('admin.update.confirmText').replace('{current}', `v${updateInfo.current}`).replace('{version}', `v${updateInfo.latest}`)}
-                  </p>
+                  {updateInfo?.is_docker ? (
+                    <>
+                      <p className="text-gray-700 dark:text-gray-300" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                        {t('admin.update.dockerText').replace('{version}', `v${updateInfo.latest}`)}
+                      </p>
 
-                  <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
-                    className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-                  >
-                    <div className="flex items-start gap-2">
-                      <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                      <span>{t('admin.update.dataInfo')}</span>
-                    </div>
-                  </div>
+                      <div style={{ marginTop: 14, padding: '12px 14px', borderRadius: 10, fontSize: 12, lineHeight: 1.8, fontFamily: 'monospace', whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}
+                        className="bg-gray-900 dark:bg-gray-950 text-gray-100 border border-gray-700"
+                      >
+{`docker pull mauriceboe/nomad:latest
+docker stop nomad && docker rm nomad
+docker run -d --name nomad \\
+  -p 3000:3000 \\
+  -v /opt/nomad/data:/app/data \\
+  -v /opt/nomad/uploads:/app/uploads \\
+  --restart unless-stopped \\
+  mauriceboe/nomad:latest`}
+                      </div>
 
-                  <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
-                    className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                  >
-                    <div className="flex items-start gap-2">
-                      <Download className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                      <span>
-                        {t('admin.update.backupHint')}{' '}
-                        <button
-                          onClick={() => { setShowUpdateModal(false); setActiveTab('backup') }}
-                          className="underline font-semibold hover:text-blue-950 dark:hover:text-blue-100"
-                        >{t('admin.update.backupLink')}</button>
-                      </span>
-                    </div>
-                  </div>
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
+                        className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>{t('admin.update.dataInfo')}</span>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-700 dark:text-gray-300" style={{ fontSize: 13, lineHeight: 1.6, margin: 0 }}>
+                        {updateInfo && t('admin.update.confirmText').replace('{current}', `v${updateInfo.current}`).replace('{version}', `v${updateInfo.latest}`)}
+                      </p>
 
-                  <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
-                    className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
-                  >
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-                      <span>{t('admin.update.warning')}</span>
-                    </div>
-                  </div>
+                      <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
+                        className="bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <CheckCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>{t('admin.update.dataInfo')}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
+                        className="bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Download className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>
+                            {t('admin.update.backupHint')}{' '}
+                            <button
+                              onClick={() => { setShowUpdateModal(false); setActiveTab('backup') }}
+                              className="underline font-semibold hover:text-blue-950 dark:hover:text-blue-100"
+                            >{t('admin.update.backupLink')}</button>
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, fontSize: 12, lineHeight: 1.5 }}
+                        className="bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+                      >
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+                          <span>{t('admin.update.warning')}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Footer */}
@@ -922,19 +964,21 @@ export default function AdminPage() {
                   >
                     {t('common.cancel')}
                   </button>
-                  <button
-                    onClick={handleInstallUpdate}
-                    disabled={updating}
-                    className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-60 flex items-center gap-2"
-                    style={{ padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    {updating ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Download size={14} />
-                    )}
-                    {updating ? t('admin.update.installing') : t('admin.update.confirm')}
-                  </button>
+                  {!updateInfo?.is_docker && (
+                    <button
+                      onClick={handleInstallUpdate}
+                      disabled={updating}
+                      className="bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-gray-200 disabled:opacity-60 flex items-center gap-2"
+                      style={{ padding: '9px 20px', borderRadius: 10, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      {updating ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Download size={14} />
+                      )}
+                      {updating ? t('admin.update.installing') : t('admin.update.confirm')}
+                    </button>
+                  )}
                 </div>
               </>
             )}
