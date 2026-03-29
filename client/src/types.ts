@@ -283,10 +283,23 @@ export interface WebSocketEvent {
 }
 
 // Vacay types
+export interface VacayHolidayCalendar {
+  id: number
+  plan_id: number
+  region: string
+  label: string | null
+  color: string
+  sort_order: number
+}
+
 export interface VacayPlan {
   id: number
   holidays_enabled: boolean
   holidays_region: string | null
+  holiday_calendars: VacayHolidayCalendar[]
+  block_weekends: boolean
+  carry_over_enabled: boolean
+  company_holidays_enabled: boolean
   name?: string
   year?: number
   owner_id?: number
@@ -303,6 +316,9 @@ export interface VacayUser {
 export interface VacayEntry {
   date: string
   user_id: number
+  plan_id?: number
+  person_color?: string
+  person_name?: string
 }
 
 export interface VacayStat {
@@ -314,6 +330,8 @@ export interface VacayStat {
 export interface HolidayInfo {
   name: string
   localName: string
+  color: string
+  label: string | null
 }
 
 export interface HolidaysMap {

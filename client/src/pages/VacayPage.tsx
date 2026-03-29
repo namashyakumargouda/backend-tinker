@@ -104,7 +104,12 @@ export default function VacayPage(): React.ReactElement {
         <div className="rounded-xl border p-3" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-primary)' }}>
           <span className="text-[11px] font-medium uppercase tracking-wider" style={{ color: 'var(--text-faint)' }}>{t('vacay.legend')}</span>
           <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
-            {plan?.holidays_enabled && <LegendItem color="#fecaca" label={t('vacay.publicHoliday')} />}
+            {plan?.holidays_enabled && (plan?.holiday_calendars ?? []).length === 0 && (
+              <LegendItem color="#fecaca" label={t('vacay.publicHoliday')} />
+            )}
+            {plan?.holidays_enabled && (plan?.holiday_calendars ?? []).map(cal => (
+              <LegendItem key={cal.id} color={cal.color} label={cal.label || cal.region} />
+            ))}
             {plan?.company_holidays_enabled && <LegendItem color="#fde68a" label={t('vacay.companyHoliday')} />}
             {plan?.block_weekends && <LegendItem color="#e5e7eb" label={t('vacay.weekend')} />}
           </div>

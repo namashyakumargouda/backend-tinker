@@ -283,6 +283,15 @@ function createTables(db: Database.Database): void {
       UNIQUE(plan_id, date)
     );
 
+    CREATE TABLE IF NOT EXISTS vacay_holiday_calendars (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      plan_id   INTEGER NOT NULL REFERENCES vacay_plans(id) ON DELETE CASCADE,
+      region    TEXT NOT NULL,
+      label     TEXT,
+      color     TEXT NOT NULL DEFAULT '#fecaca',
+      sort_order INTEGER NOT NULL DEFAULT 0
+    );
+
     CREATE TABLE IF NOT EXISTS day_accommodations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,

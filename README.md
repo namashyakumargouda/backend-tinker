@@ -72,7 +72,7 @@
 
 ### Customization & Admin
 - **Dark Mode** — Full light and dark theme with dynamic status bar color matching
-- **Multilingual** — English and German (i18n)
+- **Multilingual** — English, German, Chinese (Simplified), Dutch, Russian (i18n)
 - **Admin Panel** — User management, global categories, addon management, API keys, backups, and GitHub release history
 - **Auto-Backups** — Scheduled backups with configurable interval and retention
 - **Customizable** — Temperature units, time format (12h/24h), map tile sources, default coordinates

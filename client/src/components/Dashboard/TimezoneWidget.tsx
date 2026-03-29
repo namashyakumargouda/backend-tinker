@@ -51,6 +51,9 @@ export default function TimezoneWidget() {
   })
   const [now, setNow] = useState(Date.now())
   const [showAdd, setShowAdd] = useState(false)
+  const [customLabel, setCustomLabel] = useState('')
+  const [customTz, setCustomTz] = useState('')
+  const [customError, setCustomError] = useState('')
 
   useEffect(() => {
     const i = setInterval(() => setNow(Date.now()), 10000)
@@ -60,6 +63,20 @@ export default function TimezoneWidget() {
   useEffect(() => {
     localStorage.setItem('dashboard_timezones', JSON.stringify(zones))
   }, [zones])
+
+  const isValidTz = (tz: string) => {
+    try { Intl.DateTimeFormat('en-US', { timeZone: tz }).format(new Date()); return true } catch { return false }
+  }
+
+  const addCustomZone = () => {
+    const tz = customTz.trim()
+    if (!tz) { setCustomError(t('dashboard.timezoneCustomErrorEmpty')); return }
+    if (!isValidTz(tz)) { setCustomError(t('dashboard.timezoneCustomErrorInvalid')); return }
+    if (zones.find(z => z.tz === tz)) { setCustomError(t('dashboard.timezoneCustomErrorDuplicate')); return }
+    const label = customLabel.trim() || tz.split('/').pop()?.replace(/_/g, ' ') || tz
+    setZones([...zones, { label, tz }])
+    setCustomLabel(''); setCustomTz(''); setCustomError(''); setShowAdd(false)
+  }
 
   const addZone = (zone) => {
     if (!zones.find(z => z.tz === zone.tz)) {
@@ -108,7 +125,29 @@ export default function TimezoneWidget() {
 
       {/* Add zone dropdown */}
       {showAdd && (
-        <div className="mt-2 rounded-xl p-2 max-h-[200px] overflow-auto" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="mt-2 rounded-xl p-2 max-h-[280px] overflow-auto" style={{ background: 'var(--bg-secondary)' }}>
+          {/* Custom timezone */}
+          <div className="px-2 py-2 mb-2 rounded-lg" style={{ background: 'var(--bg-card)' }}>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-2" style={{ color: 'var(--text-faint)' }}>{t('dashboard.timezoneCustomTitle')}</p>
+            <div className="space-y-1.5">
+              <input value={customLabel} onChange={e => setCustomLabel(e.target.value)}
+                placeholder={t('dashboard.timezoneCustomLabelPlaceholder')}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border-secondary)' }} />
+              <input value={customTz} onChange={e => { setCustomTz(e.target.value); setCustomError('') }}
+                placeholder={t('dashboard.timezoneCustomTzPlaceholder')}
+                className="w-full px-2 py-1.5 rounded-lg text-xs outline-none"
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: `1px solid ${customError ? '#ef4444' : 'var(--border-secondary)'}` }}
+                onKeyDown={e => { if (e.key === 'Enter') addCustomZone() }} />
+              {customError && <p className="text-[10px]" style={{ color: '#ef4444' }}>{customError}</p>}
+              <button onClick={addCustomZone}
+                className="w-full py-1.5 rounded-lg text-xs font-medium transition-colors"
+                style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
+                {t('dashboard.timezoneCustomAdd')}
+              </button>
+            </div>
+          </div>
+          {/* Popular zones */}
           {POPULAR_ZONES.filter(z => !zones.find(existing => existing.tz === z.tz)).map(z => (
             <button key={z.tz} onClick={() => addZone(z)}
               className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs text-left transition-colors"
