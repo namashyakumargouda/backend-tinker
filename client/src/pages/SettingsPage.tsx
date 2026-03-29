@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { useTranslation } from '../i18n'
+import { SUPPORTED_LANGUAGES, useTranslation } from '../i18n'
 import Navbar from '../components/Layout/Navbar'
 import CustomSelect from '../components/shared/CustomSelect'
 import { useToast } from '../components/shared/Toast'
@@ -266,15 +266,7 @@ export default function SettingsPage(): React.ReactElement {
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>{t('settings.language')}</label>
               <div className="flex flex-wrap gap-2">
-                {[
-                  { value: 'de', label: 'Deutsch' },
-                  { value: 'en', label: 'English' },
-                  { value: 'es', label: 'Español' },
-                  { value: 'fr', label: 'Français' },
-                  { value: 'nl', label: 'Nederlands' },
-                  { value: 'ru', label: 'Русский' },
-                  { value: 'zh', label: '中文' },
-                ].map(opt => (
+                {SUPPORTED_LANGUAGES.map(opt => (
                   <button
                     key={opt.value}
                     onClick={async () => {

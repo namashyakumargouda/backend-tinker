@@ -375,6 +375,7 @@ const de: Record<string, string | { name: string; category: string }[]> = {
   'admin.github.loading': 'Wird geladen...',
   'admin.github.error': 'Releases konnten nicht geladen werden',
   'admin.github.by': 'von',
+  'admin.github.support': 'Hilft mir, TREK weiterzuentwickeln',
 
   'admin.update.available': 'Update verfügbar',
   'admin.update.text': 'TREK {version} ist verfügbar. Du verwendest {current}.',

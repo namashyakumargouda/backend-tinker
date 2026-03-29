@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import { useSettingsStore } from '../store/settingsStore'
-import { useTranslation } from '../i18n'
+import { SUPPORTED_LANGUAGES, useTranslation } from '../i18n'
 import { authApi } from '../api/client'
 import { Plane, Eye, EyeOff, Mail, Lock, MapPin, Calendar, Package, User, Globe, Zap, Users, Wallet, Map, CheckSquare, BookMarked, FolderOpen, Route, Shield } from 'lucide-react'
 
@@ -290,8 +290,8 @@ export default function LoginPage(): React.ReactElement {
       {/* Language toggle */}
       <button
         onClick={() => {
-          const languages = ['en', 'es', 'de']
-          const currentIndex = languages.indexOf(language)
+          const languages = SUPPORTED_LANGUAGES.map(({ value }) => value)
+          const currentIndex = languages.findIndex(code => code === language)
           const nextLanguage = languages[(currentIndex + 1) % languages.length]
           setLanguageLocal(nextLanguage)
         }}
