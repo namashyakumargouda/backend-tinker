@@ -179,7 +179,7 @@ export default function AtlasPage(): React.ReactElement {
 
   // Load GeoJSON world data (direct GeoJSON, no conversion needed)
   useEffect(() => {
-    fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson')
+    fetch('https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson')
       .then(r => r.json())
       .then(geo => {
         // Dynamically build A2→A3 mapping from GeoJSON
