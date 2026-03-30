@@ -8,6 +8,7 @@ import { db } from '../db/database';
 import { authenticate, adminOnly } from '../middleware/auth';
 import { AuthRequest, User, Addon } from '../types';
 import { writeAudit, getClientIp } from '../services/auditLog';
+import { revokeUserSessions } from '../mcp';
 
 const router = express.Router();
 
@@ -545,6 +546,24 @@ router.put('/addons/:id', (req: Request, res: Response) => {
     details: { enabled: enabled !== undefined ? !!enabled : undefined, config_changed: config !== undefined },
   });
   res.json({ addon: { ...updated, enabled: !!updated.enabled, config: JSON.parse(updated.config || '{}') } });
+});
+
+router.get('/mcp-tokens', (req: Request, res: Response) => {
+  const tokens = db.prepare(`
+    SELECT t.id, t.name, t.token_prefix, t.created_at, t.last_used_at, t.user_id, u.username
+    FROM mcp_tokens t
+    JOIN users u ON u.id = t.user_id
+    ORDER BY t.created_at DESC
+  `).all();
+  res.json({ tokens });
+});
+
+router.delete('/mcp-tokens/:id', (req: Request, res: Response) => {
+  const token = db.prepare('SELECT id, user_id FROM mcp_tokens WHERE id = ?').get(req.params.id) as { id: number; user_id: number } | undefined;
+  if (!token) return res.status(404).json({ error: 'Token not found' });
+  db.prepare('DELETE FROM mcp_tokens WHERE id = ?').run(req.params.id);
+  revokeUserSessions(token.user_id);
+  res.json({ success: true });
 });
 
 export default router;

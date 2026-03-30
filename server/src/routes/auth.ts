@@ -12,6 +12,8 @@ import { db } from '../db/database';
 import { authenticate, demoUploadBlock } from '../middleware/auth';
 import { JWT_SECRET } from '../config';
 import { encryptMfaSecret, decryptMfaSecret } from '../services/mfaCrypto';
+import { randomBytes, createHash } from 'crypto';
+import { revokeUserSessions } from '../mcp';
 import { AuthRequest, User } from '../types';
 import { writeAudit, getClientIp } from '../services/auditLog';
 
@@ -740,6 +742,50 @@ router.post('/mfa/disable', authenticate, rateLimiter(5, RATE_LIMIT_WINDOW), (re
   mfaSetupPending.delete(authReq.user.id);
   writeAudit({ userId: authReq.user.id, action: 'user.mfa_disable', ip: getClientIp(req) });
   res.json({ success: true, mfa_enabled: false });
+});
+
+// --- MCP Token Management ---
+
+router.get('/mcp-tokens', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const tokens = db.prepare(
+    'SELECT id, name, token_prefix, created_at, last_used_at FROM mcp_tokens WHERE user_id = ? ORDER BY created_at DESC'
+  ).all(authReq.user.id);
+  res.json({ tokens });
+});
+
+router.post('/mcp-tokens', authenticate, rateLimiter(5, RATE_LIMIT_WINDOW), (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Token name is required' });
+  if (name.trim().length > 100) return res.status(400).json({ error: 'Token name must be 100 characters or less' });
+
+  const tokenCount = (db.prepare('SELECT COUNT(*) as count FROM mcp_tokens WHERE user_id = ?').get(authReq.user.id) as { count: number }).count;
+  if (tokenCount >= 10) return res.status(400).json({ error: 'Maximum of 10 tokens per user reached' });
+
+  const rawToken = 'trek_' + randomBytes(24).toString('hex');
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const tokenPrefix = rawToken.slice(0, 13); // "trek_" + 8 hex chars
+
+  const result = db.prepare(
+    'INSERT INTO mcp_tokens (user_id, name, token_hash, token_prefix) VALUES (?, ?, ?, ?)'
+  ).run(authReq.user.id, name.trim(), tokenHash, tokenPrefix);
+
+  const token = db.prepare(
+    'SELECT id, name, token_prefix, created_at, last_used_at FROM mcp_tokens WHERE id = ?'
+  ).get(result.lastInsertRowid);
+
+  res.status(201).json({ token: { ...(token as object), raw_token: rawToken } });
+});
+
+router.delete('/mcp-tokens/:id', authenticate, (req: Request, res: Response) => {
+  const authReq = req as AuthRequest;
+  const { id } = req.params;
+  const token = db.prepare('SELECT id FROM mcp_tokens WHERE id = ? AND user_id = ?').get(id, authReq.user.id);
+  if (!token) return res.status(404).json({ error: 'Token not found' });
+  db.prepare('DELETE FROM mcp_tokens WHERE id = ?').run(id);
+  revokeUserSessions(authReq.user.id);
+  res.json({ success: true });
 });
 
 export default router;

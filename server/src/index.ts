@@ -197,6 +197,12 @@ app.use('/api/notifications', notificationRoutes);
 import shareRoutes from './routes/share';
 app.use('/api', shareRoutes);
 
+// MCP endpoint (Streamable HTTP transport, per-user auth)
+import { mcpHandler, closeMcpSessions } from './mcp';
+app.post('/mcp', mcpHandler);
+app.get('/mcp', mcpHandler);
+app.delete('/mcp', mcpHandler);
+
 // Serve static files in production
 if (process.env.NODE_ENV === 'production') {
   const publicPath = path.join(__dirname, '../public');
@@ -242,6 +248,7 @@ const server = app.listen(PORT, () => {
 function shutdown(signal: string): void {
   console.log(`\n${signal} received — shutting down gracefully...`);
   scheduler.stop();
+  closeMcpSessions();
   server.close(() => {
     console.log('HTTP server closed');
     const { closeDb } = require('./db/database');

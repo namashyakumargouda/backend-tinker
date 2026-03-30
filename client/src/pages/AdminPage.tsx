@@ -14,6 +14,7 @@ import GitHubPanel from '../components/Admin/GitHubPanel'
 import AddonManager from '../components/Admin/AddonManager'
 import PackingTemplateManager from '../components/Admin/PackingTemplateManager'
 import AuditLogPanel from '../components/Admin/AuditLogPanel'
+import AdminMcpTokensPanel from '../components/Admin/AdminMcpTokensPanel'
 import { Users, Map, Briefcase, Shield, Trash2, Edit2, Camera, FileText, Eye, EyeOff, Save, CheckCircle, XCircle, Loader2, UserPlus, ArrowUpCircle, ExternalLink, Download, AlertTriangle, RefreshCw, GitBranch, Sun, Link2, Copy, Plus } from 'lucide-react'
 import CustomSelect from '../components/shared/CustomSelect'
 
@@ -63,6 +64,7 @@ export default function AdminPage(): React.ReactElement {
     { id: 'settings', label: t('admin.tabs.settings') },
     { id: 'backup', label: t('admin.tabs.backup') },
     { id: 'audit', label: t('admin.tabs.audit') },
+    { id: 'mcp-tokens', label: t('admin.tabs.mcpTokens') },
     { id: 'github', label: t('admin.tabs.github') },
   ]
 
@@ -996,6 +998,8 @@ export default function AdminPage(): React.ReactElement {
           {activeTab === 'backup' && <BackupPanel />}
 
           {activeTab === 'audit' && <AuditLogPanel />}
+
+          {activeTab === 'mcp-tokens' && <AdminMcpTokensPanel />}
 
           {activeTab === 'github' && <GitHubPanel />}
         </div>

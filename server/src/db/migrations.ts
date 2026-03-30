@@ -394,6 +394,35 @@ function runMigrations(db: Database.Database): void {
         CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
       `);
     },
+    // MCP long-lived API tokens
+    () => db.exec(`
+      CREATE TABLE IF NOT EXISTS mcp_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        token_prefix TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        last_used_at DATETIME
+      )
+    `),
+    // MCP addon entry
+    () => {
+      try {
+        db.prepare("INSERT OR IGNORE INTO addons (id, name, description, type, icon, enabled, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .run('mcp', 'MCP', 'Model Context Protocol for AI assistant integration', 'integration', 'Terminal', 0, 12);
+      } catch {}
+    },
+    // Index on mcp_tokens.token_hash
+    () => db.exec(`
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_mcp_tokens_hash ON mcp_tokens(token_hash)
+    `),
+    // Ensure MCP addon type is 'integration'
+    () => {
+      try {
+        db.prepare("UPDATE addons SET type = 'integration' WHERE id = 'mcp'").run();
+      } catch {}
+    },
   ];
 
   if (currentVersion < migrations.length) {
