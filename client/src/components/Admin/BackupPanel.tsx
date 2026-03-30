@@ -4,6 +4,7 @@ import { useToast } from '../shared/Toast'
 import { Download, Trash2, Plus, RefreshCw, RotateCcw, Upload, Clock, Check, HardDrive, AlertTriangle } from 'lucide-react'
 import { useTranslation } from '../../i18n'
 import { useSettingsStore } from '../../store/settingsStore'
+import CustomSelect from '../shared/CustomSelect'
 import { getApiErrorMessage } from '../../types'
 
 const INTERVAL_OPTIONS = [
@@ -355,12 +356,11 @@ export default function BackupPanel() {
               {autoSettings.interval !== 'hourly' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('backup.auto.hour')}</label>
-                  <select
-                    value={autoSettings.hour}
-                    onChange={e => handleAutoSettingsChange('hour', parseInt(e.target.value, 10))}
-                    className="w-full sm:w-auto px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                  >
-                    {HOURS.map(h => {
+                  <CustomSelect
+                    value={String(autoSettings.hour)}
+                    onChange={v => handleAutoSettingsChange('hour', parseInt(v, 10))}
+                    size="sm"
+                    options={HOURS.map(h => {
                       let label: string
                       if (is12h) {
                         const period = h >= 12 ? 'PM' : 'AM'
@@ -369,13 +369,9 @@ export default function BackupPanel() {
                       } else {
                         label = `${String(h).padStart(2, '0')}:00`
                       }
-                      return (
-                        <option key={h} value={h}>
-                          {label}
-                        </option>
-                      )
+                      return { value: String(h), label }
                     })}
-                  </select>
+                  />
                   <p className="text-xs text-gray-400 mt-1">
                     {t('backup.auto.hourHint', { format: is12h ? '12h' : '24h' })}{serverTimezone ? ` (Timezone: ${serverTimezone})` : ''}
                   </p>
@@ -408,15 +404,12 @@ export default function BackupPanel() {
               {autoSettings.interval === 'monthly' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">{t('backup.auto.dayOfMonth')}</label>
-                  <select
-                    value={autoSettings.day_of_month}
-                    onChange={e => handleAutoSettingsChange('day_of_month', parseInt(e.target.value, 10))}
-                    className="w-full sm:w-auto px-3 py-2 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 focus:ring-2 focus:ring-slate-400 focus:border-transparent"
-                  >
-                    {DAYS_OF_MONTH.map(d => (
-                      <option key={d} value={d}>{d}</option>
-                    ))}
-                  </select>
+                  <CustomSelect
+                    value={String(autoSettings.day_of_month)}
+                    onChange={v => handleAutoSettingsChange('day_of_month', parseInt(v, 10))}
+                    size="sm"
+                    options={DAYS_OF_MONTH.map(d => ({ value: String(d), label: String(d) }))}
+                  />
                   <p className="text-xs text-gray-400 mt-1">{t('backup.auto.dayOfMonthHint')}</p>
                 </div>
               )}
