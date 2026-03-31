@@ -270,15 +270,15 @@ function PollCard({ poll, currentUser, canEdit, onVote, onClose, onDelete, t }: 
           const isWinner = isClosed && count === Math.max(...(poll.options || []).map(o => o.voters?.length || 0)) && count > 0
 
           return (
-            <button key={idx} onClick={() => !isClosed && canEdit && onVote(poll.id, idx)}
-              disabled={isClosed || !canEdit}
+            <button key={idx} onClick={() => !isClosed && onVote(poll.id, idx)}
+              disabled={isClosed}
               style={{
                 position: 'relative', display: 'flex', alignItems: 'center', gap: 8,
-                padding: '10px 12px', borderRadius: 10, border: 'none', cursor: (isClosed || !canEdit) ? 'default' : 'pointer',
+                padding: '10px 12px', borderRadius: 10, border: 'none', cursor: isClosed ? 'default' : 'pointer',
                 background: 'var(--bg-secondary)', fontFamily: FONT, textAlign: 'left', width: '100%',
                 overflow: 'hidden', transition: 'transform 0.1s',
               }}
-              onMouseEnter={e => { if (!isClosed && canEdit) e.currentTarget.style.transform = 'scale(1.01)' }}
+              onMouseEnter={e => { if (!isClosed) e.currentTarget.style.transform = 'scale(1.01)' }}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
               {/* Progress bar background */}

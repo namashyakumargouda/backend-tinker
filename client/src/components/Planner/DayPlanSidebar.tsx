@@ -1302,11 +1302,11 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                               handleMergedDrop(day.id, 'place', Number(fromAssignmentId), 'note', note.id)
                             }
                           }}
-                          onContextMenu={e => ctxMenu.open(e, [
-                            canEditDays && { label: t('common.edit'), icon: Pencil, onClick: () => openEditNote(day.id, note) },
-                            canEditDays && { divider: true },
-                            canEditDays && { label: t('common.delete'), icon: Trash2, danger: true, onClick: () => deleteNote(day.id, note.id) },
-                          ])}
+                          onContextMenu={canEditDays ? e => ctxMenu.open(e, [
+                            { label: t('common.edit'), icon: Pencil, onClick: () => openEditNote(day.id, note) },
+                            { divider: true },
+                            { label: t('common.delete'), icon: Trash2, danger: true, onClick: () => deleteNote(day.id, note.id) },
+                          ]) : undefined}
                           onMouseEnter={() => setHoveredId(`note-${note.id}`)}
                           onMouseLeave={() => setHoveredId(null)}
                           style={{
