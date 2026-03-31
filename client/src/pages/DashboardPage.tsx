@@ -147,10 +147,9 @@ interface TripCardProps {
   t: (key: string, params?: Record<string, string | number | null>) => string
   locale: string
   dark?: boolean
-  isAdmin?: boolean
 }
 
-function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, dark, isAdmin }: TripCardProps): React.ReactElement {
+function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, dark }: TripCardProps): React.ReactElement {
   const status = getTripStatus(trip)
 
   const coverBg = trip.cover_image
@@ -233,7 +232,7 @@ function SpotlightCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, 
 }
 
 // ── Regular Trip Card ────────────────────────────────────────────────────────
-function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, isAdmin }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
   const status = getTripStatus(trip)
   const [hovered, setHovered] = useState(false)
 
@@ -324,7 +323,7 @@ function TripCard({ trip, onEdit, onDelete, onArchive, onClick, t, locale, isAdm
 }
 
 // ── List View Item ──────────────────────────────────────────────────────────
-function TripListItem({ trip, onEdit, onDelete, onArchive, onClick, t, locale, isAdmin }: Omit<TripCardProps, 'dark'>): React.ReactElement {
+function TripListItem({ trip, onEdit, onDelete, onArchive, onClick, t, locale }: Omit<TripCardProps, 'dark'>): React.ReactElement {
   const status = getTripStatus(trip)
   const [hovered, setHovered] = useState(false)
 
@@ -430,10 +429,9 @@ interface ArchivedRowProps {
   onClick: (trip: DashboardTrip) => void
   t: (key: string, params?: Record<string, string | number | null>) => string
   locale: string
-  isAdmin?: boolean
 }
 
-function ArchivedRow({ trip, onEdit, onUnarchive, onDelete, onClick, t, locale, isAdmin }: ArchivedRowProps): React.ReactElement {
+function ArchivedRow({ trip, onEdit, onUnarchive, onDelete, onClick, t, locale }: ArchivedRowProps): React.ReactElement {
   return (
     <div onClick={() => onClick(trip)} style={{
       display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
@@ -459,7 +457,7 @@ function ArchivedRow({ trip, onEdit, onUnarchive, onDelete, onClick, t, locale, 
           </div>
         )}
       </div>
-      {(!!trip.is_owner || isAdmin) && (
+      {(onEdit || onUnarchive || onDelete) && (
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
         {onUnarchive && <button onClick={() => onUnarchive(trip.id)} title={t('dashboard.restore')} style={{ padding: '4px 8px', borderRadius: 8, border: '1px solid var(--border-primary)', background: 'var(--bg-card)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--text-faint)'; e.currentTarget.style.color = 'var(--text-primary)' }}
@@ -552,8 +550,7 @@ export default function DashboardPage(): React.ReactElement {
   const navigate = useNavigate()
   const toast = useToast()
   const { t, locale } = useTranslation()
-  const { demoMode, user } = useAuthStore()
-  const isAdmin = user?.role === 'admin'
+  const { demoMode } = useAuthStore()
   const { settings, updateSetting } = useSettingsStore()
   const can = useCanDo()
   const dm = settings.dark_mode
@@ -798,7 +795,7 @@ export default function DashboardPage(): React.ReactElement {
           {!isLoading && spotlight && viewMode === 'grid' && (
             <SpotlightCard
               trip={spotlight}
-              t={t} locale={locale} dark={dark} isAdmin={isAdmin}
+              t={t} locale={locale} dark={dark}
               onEdit={(can('trip_edit', spotlight) || can('trip_cover_upload', spotlight)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
               onDelete={can('trip_delete', spotlight) ? handleDelete : undefined}
               onArchive={can('trip_archive', spotlight) ? handleArchive : undefined}
@@ -814,7 +811,7 @@ export default function DashboardPage(): React.ReactElement {
                   <TripCard
                     key={trip.id}
                     trip={trip}
-                    t={t} locale={locale} isAdmin={isAdmin}
+                    t={t} locale={locale}
                     onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
                     onDelete={can('trip_delete', trip) ? handleDelete : undefined}
                     onArchive={can('trip_archive', trip) ? handleArchive : undefined}
@@ -828,7 +825,7 @@ export default function DashboardPage(): React.ReactElement {
                   <TripListItem
                     key={trip.id}
                     trip={trip}
-                    t={t} locale={locale} isAdmin={isAdmin}
+                    t={t} locale={locale}
                     onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
                     onDelete={can('trip_delete', trip) ? handleDelete : undefined}
                     onArchive={can('trip_archive', trip) ? handleArchive : undefined}
@@ -858,7 +855,7 @@ export default function DashboardPage(): React.ReactElement {
                     <ArchivedRow
                       key={trip.id}
                       trip={trip}
-                      t={t} locale={locale} isAdmin={isAdmin}
+                      t={t} locale={locale}
                       onEdit={(can('trip_edit', trip) || can('trip_cover_upload', trip)) ? tr => { setEditingTrip(tr); setShowForm(true) } : undefined}
                       onUnarchive={can('trip_archive', trip) ? handleUnarchive : undefined}
                       onDelete={can('trip_delete', trip) ? handleDelete : undefined}
