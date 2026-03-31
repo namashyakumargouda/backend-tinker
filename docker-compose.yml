@@ -41,20 +41,6 @@ services:
       # Set true to disable local password auth entirely (SSO only)
       # - OIDC_ONLY=false
 
-      ## ── SMTP (email notifications) ──────────────────────────────
-      ## Can also be configured from Admin > Settings > Notifications
-      # - SMTP_HOST=smtp.example.com
-      # - SMTP_PORT=587
-      # - SMTP_USER=trek@example.com
-      # - SMTP_PASS=secret
-      # - SMTP_FROM=trek@example.com
-      # Skip TLS certificate verification (self-signed certs)
-      # - SMTP_SKIP_TLS_VERIFY=false
-
-      ## ── Webhook (Discord / Slack notifications) ─────────────────
-      ## Can also be configured from Admin > Settings > Notifications
-      # - NOTIFICATION_WEBHOOK_URL=https://discord.com/api/webhooks/...
-
       ## ── Demo mode (resets data hourly) ──────────────────────────
       # - DEMO_MODE=false
     volumes:

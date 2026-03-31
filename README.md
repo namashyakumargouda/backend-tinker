@@ -244,15 +244,6 @@ trek.yourdomain.com {
 | `OIDC_CLIENT_SECRET` | OIDC client secret | — |
 | `OIDC_DISPLAY_NAME` | Label shown on the SSO login button | `SSO` |
 | `OIDC_ONLY` | Disable local password auth entirely (first SSO login becomes admin) | `false` |
-| **SMTP** | *Also configurable from Admin > Settings > Notifications* | |
-| `SMTP_HOST` | SMTP server hostname | — |
-| `SMTP_PORT` | SMTP port (`587` for STARTTLS, `465` for SSL) | — |
-| `SMTP_USER` | SMTP username | — |
-| `SMTP_PASS` | SMTP password | — |
-| `SMTP_FROM` | Sender address for notification emails | — |
-| `SMTP_SKIP_TLS_VERIFY` | Skip TLS certificate verification (self-signed certs) | `false` |
-| **Webhook** | *Also configurable from Admin > Settings > Notifications* | |
-| `NOTIFICATION_WEBHOOK_URL` | Discord or Slack webhook URL for notifications | — |
 | **Other** | | |
 | `DEMO_MODE` | Enable demo mode (hourly data resets) | `false` |
 
