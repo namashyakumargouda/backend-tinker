@@ -44,6 +44,7 @@ function getWebhookUrl(): string | null {
 }
 
 function getAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
   const origins = process.env.ALLOWED_ORIGINS;
   if (origins) {
     const first = origins.split(',')[0]?.trim();
