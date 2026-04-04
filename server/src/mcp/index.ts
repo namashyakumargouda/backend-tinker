@@ -1,11 +1,10 @@
 import { Request, Response } from 'express';
-import { randomUUID, createHash } from 'crypto';
-import jwt from 'jsonwebtoken';
+import { randomUUID } from 'crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp';
-import { JWT_SECRET } from '../config';
-import { db } from '../db/database';
 import { User } from '../types';
+import { verifyMcpToken, verifyJwtToken } from '../services/authService';
+import { isAddonEnabled } from '../services/adminService';
 import { registerResources } from './resources';
 import { registerTools } from './tools';
 
@@ -74,36 +73,15 @@ function verifyToken(authHeader: string | undefined): User | null {
 
   // Long-lived MCP API token (trek_...)
   if (token.startsWith('trek_')) {
-    const hash = createHash('sha256').update(token).digest('hex');
-    const row = db.prepare(`
-      SELECT u.id, u.username, u.email, u.role
-      FROM mcp_tokens mt
-      JOIN users u ON mt.user_id = u.id
-      WHERE mt.token_hash = ?
-    `).get(hash) as User | undefined;
-    if (row) {
-      // Update last_used_at (fire-and-forget, non-blocking)
-      db.prepare('UPDATE mcp_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE token_hash = ?').run(hash);
-      return row;
-    }
-    return null;
+    return verifyMcpToken(token);
   }
 
   // Short-lived JWT
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { id: number };
-    const user = db.prepare(
-      'SELECT id, username, email, role FROM users WHERE id = ?'
-    ).get(decoded.id) as User | undefined;
-    return user || null;
-  } catch {
-    return null;
-  }
+  return verifyJwtToken(token);
 }
 
 export async function mcpHandler(req: Request, res: Response): Promise<void> {
-  const mcpAddon = db.prepare("SELECT enabled FROM addons WHERE id = 'mcp'").get() as { enabled: number } | undefined;
-  if (!mcpAddon || !mcpAddon.enabled) {
+  if (!isAddonEnabled('mcp')) {
     res.status(403).json({ error: 'MCP is not enabled' });
     return;
   }

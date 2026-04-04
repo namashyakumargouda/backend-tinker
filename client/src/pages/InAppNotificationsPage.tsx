@@ -54,8 +54,8 @@ export default function InAppNotificationsPage(): React.ReactElement {
               <h1 className="text-xl font-semibold" style={{ color: 'var(--text-primary)' }}>
                 {t('notifications.title')}
                 {unreadCount > 0 && (
-                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: '#6366f1', color: '#fff' }}>
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium align-middle inline-flex items-center justify-center"
+                    style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
                     {unreadCount}
                   </span>
                 )}
@@ -97,8 +97,8 @@ export default function InAppNotificationsPage(): React.ReactElement {
               onClick={() => setUnreadOnly(false)}
               className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
               style={{
-                background: !unreadOnly ? '#6366f1' : 'var(--bg-hover)',
-                color: !unreadOnly ? '#fff' : 'var(--text-secondary)',
+                background: !unreadOnly ? 'var(--text-primary)' : 'var(--bg-hover)',
+                color: !unreadOnly ? 'var(--bg-primary)' : 'var(--text-secondary)',
               }}
             >
               {t('notifications.all')}
@@ -107,8 +107,8 @@ export default function InAppNotificationsPage(): React.ReactElement {
               onClick={() => setUnreadOnly(true)}
               className="px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
               style={{
-                background: unreadOnly ? '#6366f1' : 'var(--bg-hover)',
-                color: unreadOnly ? '#fff' : 'var(--text-secondary)',
+                background: unreadOnly ? 'var(--text-primary)' : 'var(--bg-hover)',
+                color: unreadOnly ? 'var(--bg-primary)' : 'var(--text-secondary)',
               }}
             >
               {t('notifications.unreadOnly')}
@@ -122,7 +122,7 @@ export default function InAppNotificationsPage(): React.ReactElement {
           >
             {isLoading && displayed.length === 0 ? (
               <div className="flex items-center justify-center py-16">
-                <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                <div className="w-6 h-6 border-2 border-slate-200 border-t-current rounded-full animate-spin" />
               </div>
             ) : displayed.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 px-4 text-center gap-3">
@@ -139,7 +139,7 @@ export default function InAppNotificationsPage(): React.ReactElement {
             {/* Infinite scroll trigger */}
             {hasMore && (
               <div ref={loaderRef} className="flex items-center justify-center py-4">
-                {isLoading && <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />}
+                {isLoading && <div className="w-5 h-5 border-2 border-slate-200 border-t-current rounded-full animate-spin" />}
               </div>
             )}
           </div>

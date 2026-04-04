@@ -259,6 +259,201 @@ export interface TestInviteToken {
   expires_at: string | null;
 }
 
+// ---------------------------------------------------------------------------
+// Day Notes
+// ---------------------------------------------------------------------------
+
+export interface TestDayNote {
+  id: number;
+  day_id: number;
+  trip_id: number;
+  text: string;
+  time: string | null;
+  icon: string;
+}
+
+export function createDayNote(
+  db: Database.Database,
+  dayId: number,
+  tripId: number,
+  overrides: Partial<{ text: string; time: string; icon: string }> = {}
+): TestDayNote {
+  const result = db.prepare(
+    'INSERT INTO day_notes (day_id, trip_id, text, time, icon, sort_order) VALUES (?, ?, ?, ?, ?, 9999)'
+  ).run(dayId, tripId, overrides.text ?? 'Test note', overrides.time ?? null, overrides.icon ?? '📝');
+  return db.prepare('SELECT * FROM day_notes WHERE id = ?').get(result.lastInsertRowid) as TestDayNote;
+}
+
+// ---------------------------------------------------------------------------
+// Collab Notes
+// ---------------------------------------------------------------------------
+
+export interface TestCollabNote {
+  id: number;
+  trip_id: number;
+  user_id: number;
+  title: string;
+  content: string | null;
+  category: string;
+  color: string;
+  pinned: number;
+}
+
+export function createCollabNote(
+  db: Database.Database,
+  tripId: number,
+  userId: number,
+  overrides: Partial<{ title: string; content: string; category: string; color: string }> = {}
+): TestCollabNote {
+  const result = db.prepare(
+    'INSERT INTO collab_notes (trip_id, user_id, title, content, category, color) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(
+    tripId,
+    userId,
+    overrides.title ?? 'Test Note',
+    overrides.content ?? null,
+    overrides.category ?? 'General',
+    overrides.color ?? '#6366f1'
+  );
+  return db.prepare('SELECT * FROM collab_notes WHERE id = ?').get(result.lastInsertRowid) as TestCollabNote;
+}
+
+// ---------------------------------------------------------------------------
+// Day Assignments
+// ---------------------------------------------------------------------------
+
+export interface TestDayAssignment {
+  id: number;
+  day_id: number;
+  place_id: number;
+  order_index: number;
+  notes: string | null;
+}
+
+export function createDayAssignment(
+  db: Database.Database,
+  dayId: number,
+  placeId: number,
+  overrides: Partial<{ order_index: number; notes: string }> = {}
+): TestDayAssignment {
+  const maxOrder = db.prepare('SELECT MAX(order_index) as max FROM day_assignments WHERE day_id = ?').get(dayId) as { max: number | null };
+  const orderIndex = overrides.order_index ?? (maxOrder.max !== null ? maxOrder.max + 1 : 0);
+  const result = db.prepare(
+    'INSERT INTO day_assignments (day_id, place_id, order_index, notes) VALUES (?, ?, ?, ?)'
+  ).run(dayId, placeId, orderIndex, overrides.notes ?? null);
+  return db.prepare('SELECT * FROM day_assignments WHERE id = ?').get(result.lastInsertRowid) as TestDayAssignment;
+}
+
+// ---------------------------------------------------------------------------
+// Bucket List
+// ---------------------------------------------------------------------------
+
+export interface TestBucketListItem {
+  id: number;
+  user_id: number;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  country_code: string | null;
+  notes: string | null;
+}
+
+export function createBucketListItem(
+  db: Database.Database,
+  userId: number,
+  overrides: Partial<{ name: string; lat: number; lng: number; country_code: string; notes: string }> = {}
+): TestBucketListItem {
+  const result = db.prepare(
+    'INSERT INTO bucket_list (user_id, name, lat, lng, country_code, notes) VALUES (?, ?, ?, ?, ?, ?)'
+  ).run(
+    userId,
+    overrides.name ?? 'Test Destination',
+    overrides.lat ?? null,
+    overrides.lng ?? null,
+    overrides.country_code ?? null,
+    overrides.notes ?? null
+  );
+  return db.prepare('SELECT * FROM bucket_list WHERE id = ?').get(result.lastInsertRowid) as TestBucketListItem;
+}
+
+// ---------------------------------------------------------------------------
+// Visited Countries
+// ---------------------------------------------------------------------------
+
+export function createVisitedCountry(
+  db: Database.Database,
+  userId: number,
+  countryCode: string
+): void {
+  db.prepare('INSERT OR IGNORE INTO visited_countries (user_id, country_code) VALUES (?, ?)').run(userId, countryCode.toUpperCase());
+}
+
+// ---------------------------------------------------------------------------
+// Day Accommodations
+// ---------------------------------------------------------------------------
+
+export interface TestDayAccommodation {
+  id: number;
+  trip_id: number;
+  place_id: number;
+  start_day_id: number;
+  end_day_id: number;
+  check_in: string | null;
+  check_out: string | null;
+}
+
+export function createDayAccommodation(
+  db: Database.Database,
+  tripId: number,
+  placeId: number,
+  startDayId: number,
+  endDayId: number,
+  overrides: Partial<{ check_in: string; check_out: string; confirmation: string }> = {}
+): TestDayAccommodation {
+  const result = db.prepare(
+    'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation) VALUES (?, ?, ?, ?, ?, ?, ?)'
+  ).run(
+    tripId,
+    placeId,
+    startDayId,
+    endDayId,
+    overrides.check_in ?? null,
+    overrides.check_out ?? null,
+    overrides.confirmation ?? null
+  );
+  return db.prepare('SELECT * FROM day_accommodations WHERE id = ?').get(result.lastInsertRowid) as TestDayAccommodation;
+}
+
+// ---------------------------------------------------------------------------
+// MCP Tokens
+// ---------------------------------------------------------------------------
+
+import { createHash } from 'crypto';
+
+export interface TestMcpToken {
+  id: number;
+  tokenHash: string;
+  rawToken: string;
+}
+
+export function createMcpToken(
+  db: Database.Database,
+  userId: number,
+  overrides: Partial<{ name: string; rawToken: string }> = {}
+): TestMcpToken {
+  const rawToken = overrides.rawToken ?? `trek_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+  const tokenPrefix = rawToken.slice(0, 12);
+  const result = db.prepare(
+    'INSERT INTO mcp_tokens (user_id, token_hash, token_prefix, name) VALUES (?, ?, ?, ?)'
+  ).run(userId, tokenHash, tokenPrefix, overrides.name ?? 'Test Token');
+  return { id: result.lastInsertRowid as number, tokenHash, rawToken };
+}
+
+// ---------------------------------------------------------------------------
+// Invite Tokens
+// ---------------------------------------------------------------------------
+
 export function createInviteToken(
   db: Database.Database,
   overrides: Partial<{ token: string; max_uses: number; expires_at: string; created_by: number }> = {}

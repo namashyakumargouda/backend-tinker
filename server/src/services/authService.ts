@@ -988,3 +988,38 @@ export function createResourceToken(userId: number, purpose?: string): { error?:
   if (!token) return { error: 'Service unavailable', status: 503 };
   return { token };
 }
+
+// ---------------------------------------------------------------------------
+// MCP auth helpers
+// ---------------------------------------------------------------------------
+
+export function isDemoUser(userId: number): boolean {
+  if (process.env.DEMO_MODE !== 'true') return false;
+  const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string } | undefined;
+  return user?.email === 'demo@nomad.app';
+}
+
+export function verifyMcpToken(rawToken: string): User | null {
+  const hash = createHash('sha256').update(rawToken).digest('hex');
+  const row = db.prepare(`
+    SELECT u.id, u.username, u.email, u.role
+    FROM mcp_tokens mt
+    JOIN users u ON mt.user_id = u.id
+    WHERE mt.token_hash = ?
+  `).get(hash) as User | undefined;
+  if (row) {
+    db.prepare('UPDATE mcp_tokens SET last_used_at = CURRENT_TIMESTAMP WHERE token_hash = ?').run(hash);
+    return row;
+  }
+  return null;
+}
+
+export function verifyJwtToken(token: string): User | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as { id: number };
+    const user = db.prepare('SELECT id, username, email, role FROM users WHERE id = ?').get(decoded.id) as User | undefined;
+    return user || null;
+  } catch {
+    return null;
+  }
+}

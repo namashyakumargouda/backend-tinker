@@ -28,6 +28,14 @@ export default defineConfig({
           './node_modules/@modelcontextprotocol/sdk/dist/cjs/server/streamableHttp.js',
           import.meta.url
       ).pathname,
+      '@modelcontextprotocol/sdk/inMemory': new URL(
+          './node_modules/@modelcontextprotocol/sdk/dist/cjs/inMemory.js',
+          import.meta.url
+      ).pathname,
+      '@modelcontextprotocol/sdk/client/index': new URL(
+          './node_modules/@modelcontextprotocol/sdk/dist/cjs/client/index.js',
+          import.meta.url
+      ).pathname,
     },
   },
 });

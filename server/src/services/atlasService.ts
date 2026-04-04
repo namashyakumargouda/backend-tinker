@@ -327,6 +327,12 @@ export function getCountryPlaces(userId: number, code: string) {
 
 // ── Mark / unmark country ───────────────────────────────────────────────────
 
+export function listVisitedCountries(userId: number): { country_code: string; created_at: string }[] {
+  return db.prepare(
+    'SELECT country_code, created_at FROM visited_countries WHERE user_id = ? ORDER BY created_at DESC'
+  ).all(userId) as { country_code: string; created_at: string }[];
+}
+
 export function markCountryVisited(userId: number, code: string): void {
   db.prepare('INSERT OR IGNORE INTO visited_countries (user_id, country_code) VALUES (?, ?)').run(userId, code);
 }

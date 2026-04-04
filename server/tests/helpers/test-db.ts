@@ -36,6 +36,8 @@ const RESET_TABLES = [
   'packing_items',
   'budget_item_members',
   'budget_items',
+  'trip_photos',
+  'trip_album_links',
   'trip_files',
   'share_tokens',
   'photos',

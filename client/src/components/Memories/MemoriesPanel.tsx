@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Camera, Plus, Share2, EyeOff, Eye, X, Check, Search, ArrowUpDown, MapPin, Filter, Link2, RefreshCw, Unlink, FolderOpen } from 'lucide-react'
+import { Camera, Plus, Share2, EyeOff, Eye, X, Check, Search, ArrowUpDown, MapPin, Filter, Link2, RefreshCw, Unlink, FolderOpen, Info } from 'lucide-react'
 import apiClient, { addonsApi } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { useTranslation } from '../../i18n'
@@ -137,7 +137,8 @@ export default function MemoriesPanel({ tripId, startDate, endDate }: MemoriesPa
   const unlinkAlbum = async (linkId: number) => {
     try {
       await apiClient.delete(`/integrations/memories/unified/trips/${tripId}/album-links/${linkId}`)
-      loadAlbumLinks()
+      await loadAlbumLinks()
+      await loadPhotos()
     } catch { toast.error(t('memories.error.unlinkAlbum')) }
   }
 
@@ -159,6 +160,14 @@ export default function MemoriesPanel({ tripId, startDate, endDate }: MemoriesPa
   const [lightboxInfo, setLightboxInfo] = useState<any>(null)
   const [lightboxInfoLoading, setLightboxInfoLoading] = useState(false)
   const [lightboxOriginalSrc, setLightboxOriginalSrc] = useState('')
+  const [showMobileInfo, setShowMobileInfo] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   // ── Init ──────────────────────────────────────────────────────────────────
 
@@ -885,117 +894,153 @@ export default function MemoriesPanel({ tripId, startDate, endDate }: MemoriesPa
       )}
 
       {/* Lightbox */}
-      {lightboxId && lightboxUserId && (
-        <div onClick={() => { if (lightboxOriginalSrc) URL.revokeObjectURL(lightboxOriginalSrc); setLightboxOriginalSrc(''); setLightboxId(null); setLightboxUserId(null) }}
-          style={{
-            position: 'absolute', inset: 0, zIndex: 100,
-            background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-          <button onClick={() => { if (lightboxOriginalSrc) URL.revokeObjectURL(lightboxOriginalSrc); setLightboxOriginalSrc(''); setLightboxId(null); setLightboxUserId(null) }}
-            style={{
-              position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-            <X size={20} color="white" />
-          </button>
-          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'center', padding: 20, width: '100%', height: '100%' }}>
-            <img
-              src={lightboxOriginalSrc}
-              alt=""
-              style={{ maxWidth: lightboxInfo ? 'calc(100% - 280px)' : '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 10, cursor: 'default' }}
-            />
+      {lightboxId && lightboxUserId && (() => {
+        const closeLightbox = () => {
+          if (lightboxOriginalSrc) URL.revokeObjectURL(lightboxOriginalSrc)
+          setLightboxOriginalSrc('')
+          setLightboxId(null)
+          setLightboxUserId(null)
+          setShowMobileInfo(false)
+        }
 
-            {/* Info panel — liquid glass */}
-            {lightboxInfo && (
-              <div style={{
-                width: 240, flexShrink: 0, borderRadius: 16, padding: 18,
-                background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255,255,255,0.12)', color: 'white',
-                display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '100%', overflowY: 'auto',
-              }}>
-                {/* Date */}
-                {lightboxInfo.takenAt && (
+        const exifContent = lightboxInfo ? (
+          <>
+            {lightboxInfo.takenAt && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>Date</div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{new Date(lightboxInfo.takenAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{new Date(lightboxInfo.takenAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+            )}
+            {(lightboxInfo.city || lightboxInfo.country) && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>
+                  <MapPin size={9} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 3 }} />Location
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>
+                  {[lightboxInfo.city, lightboxInfo.state, lightboxInfo.country].filter(Boolean).join(', ')}
+                </div>
+              </div>
+            )}
+            {lightboxInfo.camera && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>Camera</div>
+                <div style={{ fontSize: 12, fontWeight: 500 }}>{lightboxInfo.camera}</div>
+                {lightboxInfo.lens && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{lightboxInfo.lens}</div>}
+              </div>
+            )}
+            {(lightboxInfo.focalLength || lightboxInfo.aperture || lightboxInfo.iso) && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {lightboxInfo.focalLength && (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>Date</div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{new Date(lightboxInfo.takenAt).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>{new Date(lightboxInfo.takenAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Focal</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.focalLength}</div>
                   </div>
                 )}
-
-                {/* Location */}
-                {(lightboxInfo.city || lightboxInfo.country) && (
+                {lightboxInfo.aperture && (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>
-                      <MapPin size={9} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 3 }} />Location
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {[lightboxInfo.city, lightboxInfo.state, lightboxInfo.country].filter(Boolean).join(', ')}
-                    </div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aperture</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.aperture}</div>
                   </div>
                 )}
-
-                {/* Camera */}
-                {lightboxInfo.camera && (
+                {lightboxInfo.shutter && (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>Camera</div>
-                    <div style={{ fontSize: 12, fontWeight: 500 }}>{lightboxInfo.camera}</div>
-                    {lightboxInfo.lens && <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>{lightboxInfo.lens}</div>}
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shutter</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.shutter}</div>
                   </div>
                 )}
-
-                {/* Settings */}
-                {(lightboxInfo.focalLength || lightboxInfo.aperture || lightboxInfo.iso) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    {lightboxInfo.focalLength && (
-                      <div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Focal</div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.focalLength}</div>
-                      </div>
-                    )}
-                    {lightboxInfo.aperture && (
-                      <div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Aperture</div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.aperture}</div>
-                      </div>
-                    )}
-                    {lightboxInfo.shutter && (
-                      <div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Shutter</div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.shutter}</div>
-                      </div>
-                    )}
-                    {lightboxInfo.iso && (
-                      <div>
-                        <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ISO</div>
-                        <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.iso}</div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Resolution & File */}
-                {(lightboxInfo.width || lightboxInfo.fileName) && (
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
-                    {lightboxInfo.width && lightboxInfo.height && (
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>{lightboxInfo.width} × {lightboxInfo.height}</div>
-                    )}
-                    {lightboxInfo.fileSize && (
-                      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{(lightboxInfo.fileSize / 1024 / 1024).toFixed(1)} MB</div>
-                    )}
+                {lightboxInfo.iso && (
+                  <div>
+                    <div style={{ fontSize: 9, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ISO</div>
+                    <div style={{ fontSize: 13, fontWeight: 700 }}>{lightboxInfo.iso}</div>
                   </div>
                 )}
               </div>
             )}
+            {(lightboxInfo.width || lightboxInfo.fileName) && (
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 10 }}>
+                {lightboxInfo.width && lightboxInfo.height && (
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)', marginBottom: 3 }}>{lightboxInfo.width} × {lightboxInfo.height}</div>
+                )}
+                {lightboxInfo.fileSize && (
+                  <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.4)' }}>{(lightboxInfo.fileSize / 1024 / 1024).toFixed(1)} MB</div>
+                )}
+              </div>
+            )}
+          </>
+        ) : null
 
-            {lightboxInfoLoading && (
-              <div style={{ width: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }} />
+        return (
+          <div onClick={closeLightbox}
+            style={{
+              position: 'absolute', inset: 0, zIndex: 100,
+              background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+            {/* Close button */}
+            <button onClick={closeLightbox}
+              style={{
+                position: 'absolute', top: 16, right: 16, zIndex: 10, width: 40, height: 40, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.1)', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+              <X size={20} color="white" />
+            </button>
+
+            {/* Mobile info toggle button */}
+            {isMobile && (lightboxInfo || lightboxInfoLoading) && (
+              <button onClick={e => { e.stopPropagation(); setShowMobileInfo(prev => !prev) }}
+                style={{
+                  position: 'absolute', top: 16, right: 68, zIndex: 10, width: 40, height: 40, borderRadius: '50%',
+                  background: showMobileInfo ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)',
+                  border: 'none', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                <Info size={20} color="white" />
+              </button>
+            )}
+
+            <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', justifyContent: 'center', padding: 20, width: '100%', height: '100%' }}>
+              <img
+                src={lightboxOriginalSrc}
+                alt=""
+                style={{ maxWidth: (!isMobile && lightboxInfo) ? 'calc(100% - 280px)' : '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: 10, cursor: 'default' }}
+              />
+
+              {/* Desktop info panel — liquid glass */}
+              {!isMobile && lightboxInfo && (
+                <div style={{
+                  width: 240, flexShrink: 0, borderRadius: 16, padding: 18,
+                  background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255,255,255,0.12)', color: 'white',
+                  display: 'flex', flexDirection: 'column', gap: 14, maxHeight: '100%', overflowY: 'auto',
+                }}>
+                  {exifContent}
+                </div>
+              )}
+
+              {!isMobile && lightboxInfoLoading && (
+                <div style={{ width: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: 'rgba(255,255,255,0.2)', borderTopColor: 'white' }} />
+                </div>
+              )}
+            </div>
+
+            {/* Mobile bottom sheet */}
+            {isMobile && showMobileInfo && lightboxInfo && (
+              <div onClick={e => e.stopPropagation()} style={{
+                position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 5,
+                maxHeight: '60vh', overflowY: 'auto',
+                borderRadius: '16px 16px 0 0', padding: 18,
+                background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255,255,255,0.12)', borderBottom: 'none',
+                color: 'white', display: 'flex', flexDirection: 'column', gap: 14,
+              }}>
+                {exifContent}
               </div>
             )}
           </div>
-        </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

@@ -52,7 +52,7 @@
   <Config Name="OIDC_ONLY" Target="OIDC_ONLY" Default="false" Mode="" Description="Set to true to disable local password auth entirely (SSO only). First SSO login becomes admin." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
   <Config Name="OIDC_ADMIN_CLAIM" Target="OIDC_ADMIN_CLAIM" Default="" Mode="" Description="OIDC claim used to identify admin users (e.g. groups)." Type="Variable" Display="advanced" Required="false" Mask="false"/>
   <Config Name="OIDC_ADMIN_VALUE" Target="OIDC_ADMIN_VALUE" Default="" Mode="" Description="Value of the OIDC claim that grants admin role (e.g. app-trek-admins)." Type="Variable" Display="advanced" Required="false" Mask="false"/>
-  <Config Name="OIDC_SCOPE" Target="OIDC_SCOPE" Default="openid email profile groups" Mode="" Description="Space-separated OIDC scopes to request. Must include scopes for any claim used by OIDC_ADMIN_CLAIM." Type="Variable" Display="advanced" Required="false" Mask="false">openid email profile groups</Config>
+  <Config Name="OIDC_SCOPE" Target="OIDC_SCOPE" Default="openid email profile" Mode="" Description="Space-separated OIDC scopes to request. Fully overrides the default — always include openid email profile plus any extra scopes you need (e.g. add groups when using OIDC_ADMIN_CLAIM)." Type="Variable" Display="advanced" Required="false" Mask="false">openid email profile</Config>
   <Config Name="OIDC_DISCOVERY_URL" Target="OIDC_DISCOVERY_URL" Default="" Mode="" Description="Override the auto-constructed OIDC discovery endpoint. Useful for providers with a non-standard path (e.g. Authentik)." Type="Variable" Display="advanced" Required="false" Mask="false"/>
 
   <!-- Other -->

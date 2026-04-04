@@ -145,3 +145,98 @@ describe('Immich authentication', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('Immich album links', () => {
+  it('IMMICH-020 — POST album-links creates a link', async () => {
+    const { user } = createUser(testDb);
+    const trip = testDb.prepare('INSERT INTO trips (user_id, title) VALUES (?, ?) RETURNING *').get(user.id, 'Test Trip') as any;
+
+    const res = await request(app)
+      .post(`/api/integrations/immich/trips/${trip.id}/album-links`)
+      .set('Cookie', authCookie(user.id))
+      .send({ album_id: 'album-uuid-123', album_name: 'Vacation 2024' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const link = testDb.prepare('SELECT * FROM trip_album_links WHERE trip_id = ? AND user_id = ?').get(trip.id, user.id) as any;
+    expect(link).toBeDefined();
+    expect(link.immich_album_id).toBe('album-uuid-123');
+    expect(link.album_name).toBe('Vacation 2024');
+  });
+
+  it('IMMICH-021 — GET album-links returns linked albums', async () => {
+    const { user } = createUser(testDb);
+    const trip = testDb.prepare('INSERT INTO trips (user_id, title) VALUES (?, ?) RETURNING *').get(user.id, 'Test Trip') as any;
+    testDb.prepare('INSERT INTO trip_album_links (trip_id, user_id, immich_album_id, album_name) VALUES (?, ?, ?, ?)').run(trip.id, user.id, 'album-abc', 'My Album');
+
+    const res = await request(app)
+      .get(`/api/integrations/immich/trips/${trip.id}/album-links`)
+      .set('Cookie', authCookie(user.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.links).toBeDefined();
+    expect(res.body.links.length).toBe(1);
+    expect(res.body.links[0].immich_album_id).toBe('album-abc');
+  });
+
+  it('IMMICH-022 — DELETE album-links removes associated photos but not individually-added ones', async () => {
+    const { user } = createUser(testDb);
+    const trip = testDb.prepare('INSERT INTO trips (user_id, title) VALUES (?, ?) RETURNING *').get(user.id, 'Test Trip') as any;
+
+    // Create album link
+    const linkResult = testDb.prepare('INSERT INTO trip_album_links (trip_id, user_id, immich_album_id, album_name) VALUES (?, ?, ?, ?) RETURNING *')
+      .get(trip.id, user.id, 'album-xyz', 'Album XYZ') as any;
+
+    // Insert photos synced from the album
+    testDb.prepare('INSERT INTO trip_photos (trip_id, user_id, immich_asset_id, shared, album_link_id) VALUES (?, ?, ?, 1, ?)').run(trip.id, user.id, 'asset-001', linkResult.id);
+    testDb.prepare('INSERT INTO trip_photos (trip_id, user_id, immich_asset_id, shared, album_link_id) VALUES (?, ?, ?, 1, ?)').run(trip.id, user.id, 'asset-002', linkResult.id);
+
+    // Insert an individually-added photo (no album_link_id)
+    testDb.prepare('INSERT INTO trip_photos (trip_id, user_id, immich_asset_id, shared) VALUES (?, ?, ?, 1)').run(trip.id, user.id, 'asset-manual');
+
+    const res = await request(app)
+      .delete(`/api/integrations/immich/trips/${trip.id}/album-links/${linkResult.id}`)
+      .set('Cookie', authCookie(user.id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    // Album-linked photos should be gone
+    const remainingPhotos = testDb.prepare('SELECT * FROM trip_photos WHERE trip_id = ?').all(trip.id) as any[];
+    expect(remainingPhotos.length).toBe(1);
+    expect(remainingPhotos[0].immich_asset_id).toBe('asset-manual');
+
+    // Album link itself should be gone
+    const link = testDb.prepare('SELECT * FROM trip_album_links WHERE id = ?').get(linkResult.id);
+    expect(link).toBeUndefined();
+  });
+
+  it('IMMICH-023 — DELETE album-link by non-owner is a no-op', async () => {
+    const { user: owner } = createUser(testDb);
+    const { user: other } = createUser(testDb);
+    const trip = testDb.prepare('INSERT INTO trips (user_id, title) VALUES (?, ?) RETURNING *').get(owner.id, 'Test Trip') as any;
+
+    const linkResult = testDb.prepare('INSERT INTO trip_album_links (trip_id, user_id, immich_album_id, album_name) VALUES (?, ?, ?, ?) RETURNING *')
+      .get(trip.id, owner.id, 'album-secret', 'Secret Album') as any;
+    testDb.prepare('INSERT INTO trip_photos (trip_id, user_id, immich_asset_id, shared, album_link_id) VALUES (?, ?, ?, 1, ?)').run(trip.id, owner.id, 'asset-owned', linkResult.id);
+
+    // Other user tries to delete owner's album link
+    const res = await request(app)
+      .delete(`/api/integrations/immich/trips/${trip.id}/album-links/${linkResult.id}`)
+      .set('Cookie', authCookie(other.id));
+
+    expect(res.status).toBe(200); // endpoint returns 200 even when no row matched
+
+    // Link and photos should still exist
+    const link = testDb.prepare('SELECT * FROM trip_album_links WHERE id = ?').get(linkResult.id);
+    expect(link).toBeDefined();
+    const photo = testDb.prepare('SELECT * FROM trip_photos WHERE immich_asset_id = ?').get('asset-owned');
+    expect(photo).toBeDefined();
+  });
+
+  it('IMMICH-024 — DELETE album-link without auth returns 401', async () => {
+    const res = await request(app).delete('/api/integrations/immich/trips/1/album-links/1');
+    expect(res.status).toBe(401);
+  });
+});

@@ -704,7 +704,7 @@ export default function SettingsPage(): React.ReactElement {
             {/* Dark Mode Toggle */}
             <div>
               <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>{t('settings.colorMode')}</label>
-              <div className="flex gap-3">
+              <div className="flex gap-3" style={{ flexWrap: 'wrap' }}>
                 {[
                   { value: 'light', label: t('settings.light'), icon: Sun },
                   { value: 'dark', label: t('settings.dark'), icon: Moon },
@@ -721,8 +721,8 @@ export default function SettingsPage(): React.ReactElement {
                         } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Error') }
                       }}
                       style={{
-                        display: 'flex', alignItems: 'center', gap: 8,
-                        padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        padding: '10px 14px', borderRadius: 10, cursor: 'pointer', flex: '1 1 0', justifyContent: 'center', minWidth: 0,
                         fontFamily: 'inherit', fontSize: 14, fontWeight: 500,
                         border: isActive ? '2px solid var(--text-primary)' : '2px solid var(--border-primary)',
                         background: isActive ? 'var(--bg-hover)' : 'var(--bg-card)',
@@ -1391,7 +1391,8 @@ export default function SettingsPage(): React.ReactElement {
                 className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm hover:bg-slate-700 disabled:bg-slate-400"
               >
                 {saving.profile ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                {t('settings.saveProfile')}
+                <span className="hidden sm:inline">{t('settings.saveProfile')}</span>
+                <span className="sm:hidden">{t('common.save')}</span>
               </button>
               <button
                 onClick={async () => {
@@ -1411,7 +1412,8 @@ export default function SettingsPage(): React.ReactElement {
                 style={{ border: '1px solid #fecaca' }}
               >
                 <Trash2 size={14} />
-                {t('settings.deleteAccount')}
+                <span className="hidden sm:inline">{t('settings.deleteAccount')}</span>
+                <span className="sm:hidden">{t('common.delete')}</span>
               </button>
             </div>
           </Section>

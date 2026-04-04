@@ -1,6 +1,6 @@
 import type { StoreApi } from 'zustand'
 import type { TripStoreState } from '../tripStore'
-import type { Assignment, Place, Day, DayNote, PackingItem, BudgetItem, BudgetMember, Reservation, Trip, TripFile, WebSocketEvent } from '../../types'
+import type { Assignment, Place, Day, DayNote, PackingItem, TodoItem, BudgetItem, BudgetMember, Reservation, Trip, TripFile, WebSocketEvent } from '../../types'
 
 type SetState = StoreApi<TripStoreState>['setState']
 
@@ -173,6 +173,19 @@ export function handleRemoteEvent(set: SetState, event: WebSocketEvent): void {
       case 'packing:deleted':
         return {
           packingItems: state.packingItems.filter(i => i.id !== payload.itemId),
+        }
+
+      // Todo
+      case 'todo:created':
+        if (state.todoItems.some(i => i.id === (payload.item as TodoItem).id)) return {}
+        return { todoItems: [...state.todoItems, payload.item as TodoItem] }
+      case 'todo:updated':
+        return {
+          todoItems: state.todoItems.map(i => i.id === (payload.item as TodoItem).id ? payload.item as TodoItem : i),
+        }
+      case 'todo:deleted':
+        return {
+          todoItems: state.todoItems.filter(i => i.id !== payload.itemId),
         }
 
       // Budget

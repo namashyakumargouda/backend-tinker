@@ -1,16 +1,15 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp';
-import { db, canAccessTrip } from '../db/database';
-
-const TRIP_SELECT = `
-  SELECT t.*,
-    (SELECT COUNT(*) FROM days d WHERE d.trip_id = t.id) as day_count,
-    (SELECT COUNT(*) FROM places p WHERE p.trip_id = t.id) as place_count,
-    CASE WHEN t.user_id = :userId THEN 1 ELSE 0 END as is_owner,
-    u.username as owner_username,
-    (SELECT COUNT(*) FROM trip_members tm WHERE tm.trip_id = t.id) as shared_count
-  FROM trips t
-  JOIN users u ON u.id = t.user_id
-`;
+import { canAccessTrip } from '../db/database';
+import { listTrips, getTrip, getTripOwner, listMembers } from '../services/tripService';
+import { listDays, listAccommodations } from '../services/dayService';
+import { listPlaces } from '../services/placeService';
+import { listBudgetItems } from '../services/budgetService';
+import { listItems as listPackingItems } from '../services/packingService';
+import { listReservations } from '../services/reservationService';
+import { listNotes as listDayNotes } from '../services/dayNoteService';
+import { listNotes as listCollabNotes } from '../services/collabService';
+import { listCategories } from '../services/categoryService';
+import { listBucketList, listVisitedCountries } from '../services/atlasService';
 
 function parseId(value: string | string[]): number | null {
   const n = Number(Array.isArray(value) ? value[0] : value);
@@ -44,12 +43,7 @@ export function registerResources(server: McpServer, userId: number): void {
     'trek://trips',
     { description: 'All trips the user owns or is a member of' },
     async (uri) => {
-      const trips = db.prepare(`
-        ${TRIP_SELECT}
-        LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = :userId
-        WHERE (t.user_id = :userId OR m.user_id IS NOT NULL) AND t.is_archived = 0
-        ORDER BY t.created_at DESC
-      `).all({ userId });
+      const trips = listTrips(userId, 0);
       return jsonContent(uri.href, trips);
     }
   );
@@ -62,11 +56,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const trip = db.prepare(`
-        ${TRIP_SELECT}
-        LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = :userId
-        WHERE t.id = :tripId AND (t.user_id = :userId OR m.user_id IS NOT NULL)
-      `).get({ userId, tripId: id });
+      const trip = getTrip(id, userId);
       return jsonContent(uri.href, trip);
     }
   );
@@ -80,35 +70,8 @@ export function registerResources(server: McpServer, userId: number): void {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
 
-      const days = db.prepare(
-        'SELECT * FROM days WHERE trip_id = ? ORDER BY day_number ASC'
-      ).all(id) as { id: number; day_number: number; date: string | null; title: string | null; notes: string | null }[];
-
-      const dayIds = days.map(d => d.id);
-      const assignmentsByDay: Record<number, unknown[]> = {};
-
-      if (dayIds.length > 0) {
-        const placeholders = dayIds.map(() => '?').join(',');
-        const assignments = db.prepare(`
-          SELECT da.id, da.day_id, da.order_index, da.notes as assignment_notes,
-            p.id as place_id, p.name, p.address, p.lat, p.lng, p.category_id,
-            COALESCE(da.assignment_time, p.place_time) as place_time,
-            c.name as category_name, c.color as category_color, c.icon as category_icon
-          FROM day_assignments da
-          JOIN places p ON da.place_id = p.id
-          LEFT JOIN categories c ON p.category_id = c.id
-          WHERE da.day_id IN (${placeholders})
-          ORDER BY da.order_index ASC, da.created_at ASC
-        `).all(...dayIds) as (Record<string, unknown> & { day_id: number })[];
-
-        for (const a of assignments) {
-          if (!assignmentsByDay[a.day_id]) assignmentsByDay[a.day_id] = [];
-          assignmentsByDay[a.day_id].push(a);
-        }
-      }
-
-      const result = days.map(d => ({ ...d, assignments: assignmentsByDay[d.id] || [] }));
-      return jsonContent(uri.href, result);
+      const { days } = listDays(id);
+      return jsonContent(uri.href, days);
     }
   );
 
@@ -120,13 +83,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const places = db.prepare(`
-        SELECT p.*, c.name as category_name, c.color as category_color, c.icon as category_icon
-        FROM places p
-        LEFT JOIN categories c ON p.category_id = c.id
-        WHERE p.trip_id = ?
-        ORDER BY p.created_at DESC
-      `).all(id);
+      const places = listPlaces(String(id), {});
       return jsonContent(uri.href, places);
     }
   );
@@ -139,9 +96,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const items = db.prepare(
-        'SELECT * FROM budget_items WHERE trip_id = ? ORDER BY category ASC, created_at ASC'
-      ).all(id);
+      const items = listBudgetItems(id);
       return jsonContent(uri.href, items);
     }
   );
@@ -154,9 +109,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const items = db.prepare(
-        'SELECT * FROM packing_items WHERE trip_id = ? ORDER BY sort_order ASC, created_at ASC'
-      ).all(id);
+      const items = listPackingItems(id);
       return jsonContent(uri.href, items);
     }
   );
@@ -169,14 +122,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const reservations = db.prepare(`
-        SELECT r.*, d.day_number, p.name as place_name
-        FROM reservations r
-        LEFT JOIN days d ON r.day_id = d.id
-        LEFT JOIN places p ON r.place_id = p.id
-        WHERE r.trip_id = ?
-        ORDER BY r.reservation_time ASC, r.created_at ASC
-      `).all(id);
+      const reservations = listReservations(id);
       return jsonContent(uri.href, reservations);
     }
   );
@@ -190,9 +136,7 @@ export function registerResources(server: McpServer, userId: number): void {
       const tId = parseId(tripId);
       const dId = parseId(dayId);
       if (tId === null || dId === null || !canAccessTrip(tId, userId)) return accessDenied(uri.href);
-      const notes = db.prepare(
-        'SELECT * FROM day_notes WHERE day_id = ? AND trip_id = ? ORDER BY sort_order ASC, created_at ASC'
-      ).all(dId, tId);
+      const notes = listDayNotes(dId, tId);
       return jsonContent(uri.href, notes);
     }
   );
@@ -205,16 +149,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const accommodations = db.prepare(`
-        SELECT da.*, p.name as place_name, p.address as place_address, p.lat, p.lng,
-          ds.day_number as start_day_number, de.day_number as end_day_number
-        FROM day_accommodations da
-        JOIN places p ON da.place_id = p.id
-        LEFT JOIN days ds ON da.start_day_id = ds.id
-        LEFT JOIN days de ON da.end_day_id = de.id
-        WHERE da.trip_id = ?
-        ORDER BY ds.day_number ASC
-      `).all(id);
+      const accommodations = listAccommodations(id);
       return jsonContent(uri.href, accommodations);
     }
   );
@@ -227,20 +162,10 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const trip = db.prepare('SELECT user_id FROM trips WHERE id = ?').get(id) as { user_id: number } | undefined;
-      if (!trip) return accessDenied(uri.href);
-      const owner = db.prepare('SELECT id, username, avatar FROM users WHERE id = ?').get(trip.user_id) as Record<string, unknown> | undefined;
-      const members = db.prepare(`
-        SELECT u.id, u.username, u.avatar, tm.added_at
-        FROM trip_members tm
-        JOIN users u ON tm.user_id = u.id
-        WHERE tm.trip_id = ?
-        ORDER BY tm.added_at ASC
-      `).all(id);
-      return jsonContent(uri.href, {
-        owner: owner ? { ...owner, role: 'owner' } : null,
-        members,
-      });
+      const ownerRow = getTripOwner(id);
+      if (!ownerRow) return accessDenied(uri.href);
+      const { owner, members } = listMembers(id, ownerRow.user_id);
+      return jsonContent(uri.href, { owner, members });
     }
   );
 
@@ -252,13 +177,7 @@ export function registerResources(server: McpServer, userId: number): void {
     async (uri, { tripId }) => {
       const id = parseId(tripId);
       if (id === null || !canAccessTrip(id, userId)) return accessDenied(uri.href);
-      const notes = db.prepare(`
-        SELECT cn.*, u.username
-        FROM collab_notes cn
-        JOIN users u ON cn.user_id = u.id
-        WHERE cn.trip_id = ?
-        ORDER BY cn.pinned DESC, cn.updated_at DESC
-      `).all(id);
+      const notes = listCollabNotes(id);
       return jsonContent(uri.href, notes);
     }
   );
@@ -269,9 +188,7 @@ export function registerResources(server: McpServer, userId: number): void {
     'trek://categories',
     { description: 'All available place categories (id, name, color, icon) for use when creating places' },
     async (uri) => {
-      const categories = db.prepare(
-        'SELECT id, name, color, icon FROM categories ORDER BY name ASC'
-      ).all();
+      const categories = listCategories();
       return jsonContent(uri.href, categories);
     }
   );
@@ -282,9 +199,7 @@ export function registerResources(server: McpServer, userId: number): void {
     'trek://bucket-list',
     { description: 'Your personal travel bucket list' },
     async (uri) => {
-      const items = db.prepare(
-        'SELECT * FROM bucket_list WHERE user_id = ? ORDER BY created_at DESC'
-      ).all(userId);
+      const items = listBucketList(userId);
       return jsonContent(uri.href, items);
     }
   );
@@ -295,9 +210,7 @@ export function registerResources(server: McpServer, userId: number): void {
     'trek://visited-countries',
     { description: 'Countries you have marked as visited in Atlas' },
     async (uri) => {
-      const countries = db.prepare(
-        'SELECT country_code, created_at FROM visited_countries WHERE user_id = ? ORDER BY created_at DESC'
-      ).all(userId);
+      const countries = listVisitedCountries(userId);
       return jsonContent(uri.href, countries);
     }
   );

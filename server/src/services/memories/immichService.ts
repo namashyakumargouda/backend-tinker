@@ -309,6 +309,36 @@ export async function listAlbums(
   }
 }
 
+export function listAlbumLinks(tripId: string) {
+  return db.prepare(`
+    SELECT tal.*, u.username
+    FROM trip_album_links tal
+    JOIN users u ON tal.user_id = u.id
+    WHERE tal.trip_id = ?
+    ORDER BY tal.created_at ASC
+  `).all(tripId);
+}
+
+export function createAlbumLink(
+  tripId: string,
+  userId: number,
+  albumId: string,
+  albumName: string
+): { success: boolean; error?: string } {
+  try {
+    db.prepare(
+      'INSERT OR IGNORE INTO trip_album_links (trip_id, user_id, immich_album_id, album_name) VALUES (?, ?, ?, ?)'
+    ).run(tripId, userId, albumId, albumName || '');
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Album already linked' };
+  }
+}
+
+export function deleteAlbumLink(linkId: string, tripId: string, userId: number) {
+  db.prepare('DELETE FROM trip_album_links WHERE id = ? AND trip_id = ? AND user_id = ?')
+    .run(linkId, tripId, userId);
+}
 
 export async function syncAlbumAssets(
   tripId: string,

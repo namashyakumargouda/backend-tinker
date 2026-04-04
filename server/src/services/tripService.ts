@@ -2,6 +2,11 @@ import path from 'path';
 import fs from 'fs';
 import { db, canAccessTrip, isOwner } from '../db/database';
 import { Trip, User } from '../types';
+import { listDays, listAccommodations } from './dayService';
+import { listBudgetItems } from './budgetService';
+import { listItems as listPackingItems } from './packingService';
+import { listReservations } from './reservationService';
+import { listNotes as listCollabNotes } from './collabService';
 
 export const MS_PER_DAY = 86400000;
 export const MAX_TRIP_DAYS = 365;
@@ -27,7 +32,7 @@ export { isOwner };
 
 // ── Day generation ────────────────────────────────────────────────────────
 
-export function generateDays(tripId: number | bigint | string, startDate: string | null, endDate: string | null) {
+export function generateDays(tripId: number | bigint | string, startDate: string | null, endDate: string | null, maxDays?: number) {
   const existing = db.prepare('SELECT id, day_number, date FROM days WHERE trip_id = ?').all(tripId) as { id: number; day_number: number; date: string | null }[];
 
   if (!startDate || !endDate) {
@@ -56,7 +61,7 @@ export function generateDays(tripId: number | bigint | string, startDate: string
   const [ey, em, ed] = endDate.split('-').map(Number);
   const startMs = Date.UTC(sy, sm - 1, sd);
   const endMs = Date.UTC(ey, em - 1, ed);
-  const numDays = Math.min(Math.floor((endMs - startMs) / MS_PER_DAY) + 1, MAX_TRIP_DAYS);
+  const numDays = Math.min(Math.floor((endMs - startMs) / MS_PER_DAY) + 1, maxDays ?? MAX_TRIP_DAYS);
 
   const targetDates: string[] = [];
   for (let i = 0; i < numDays; i++) {
@@ -75,9 +80,13 @@ export function generateDays(tripId: number | bigint | string, startDate: string
   const targetDateSet = new Set(targetDates);
 
   const toDelete = existing.filter(d => d.date && !targetDateSet.has(d.date));
-  const datelessToDelete = existing.filter(d => !d.date);
+  const dateless = existing.filter(d => !d.date).sort((a, b) => a.day_number - b.day_number);
   const del = db.prepare('DELETE FROM days WHERE id = ?');
-  for (const d of [...toDelete, ...datelessToDelete]) del.run(d.id);
+  for (const d of toDelete) del.run(d.id);
+
+  // Reassign dateless days to the first unmatched target dates (preserves content)
+  const assignDate = db.prepare('UPDATE days SET date = ?, day_number = ? WHERE id = ?');
+  let datelessIdx = 0;
 
   const setTemp = db.prepare('UPDATE days SET day_number = ? WHERE id = ?');
   const kept = existing.filter(d => d.date && targetDateSet.has(d.date));
@@ -91,15 +100,30 @@ export function generateDays(tripId: number | bigint | string, startDate: string
     const ex = existingByDate.get(date);
     if (ex) {
       update.run(i + 1, ex.id);
+    } else if (datelessIdx < dateless.length) {
+      // Reuse a dateless day — keeps its assignments, notes, etc.
+      assignDate.run(date, i + 1, dateless[datelessIdx].id);
+      datelessIdx++;
     } else {
       insert.run(tripId, i + 1, date);
     }
   }
+
+  // Delete any remaining unused dateless days
+  for (let i = datelessIdx; i < dateless.length; i++) del.run(dateless[i].id);
 }
 
 // ── Trip CRUD ─────────────────────────────────────────────────────────────
 
-export function listTrips(userId: number, archived: number) {
+export function listTrips(userId: number, archived: number | null) {
+  if (archived === null) {
+    return db.prepare(`
+      ${TRIP_SELECT}
+      LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = :userId
+      WHERE (t.user_id = :userId OR m.user_id IS NOT NULL)
+      ORDER BY t.created_at DESC
+    `).all({ userId });
+  }
   return db.prepare(`
     ${TRIP_SELECT}
     LEFT JOIN trip_members m ON m.trip_id = t.id AND m.user_id = :userId
@@ -117,7 +141,7 @@ interface CreateTripData {
   reminder_days?: number;
 }
 
-export function createTrip(userId: number, data: CreateTripData) {
+export function createTrip(userId: number, data: CreateTripData, maxDays?: number) {
   const rd = data.reminder_days !== undefined
     ? (Number(data.reminder_days) >= 0 && Number(data.reminder_days) <= 30 ? Number(data.reminder_days) : 3)
     : 3;
@@ -128,7 +152,7 @@ export function createTrip(userId: number, data: CreateTripData) {
   `).run(userId, data.title, data.description || null, data.start_date || null, data.end_date || null, data.currency || 'EUR', rd);
 
   const tripId = result.lastInsertRowid;
-  generateDays(tripId, data.start_date || null, data.end_date || null);
+  generateDays(tripId, data.start_date || null, data.end_date || null, maxDays);
 
   const trip = db.prepare(`${TRIP_SELECT} WHERE t.id = :tripId`).get({ userId, tripId });
   return { trip, tripId: Number(tripId), reminderDays: rd };
@@ -396,6 +420,49 @@ export function exportICS(tripId: string | number): { ics: string; filename: str
 
   const safeFilename = (trip.title || 'trek-trip').replace(/["\r\n]/g, '').replace(/[^\w\s.-]/g, '_');
   return { ics, filename: `${safeFilename}.ics` };
+}
+
+// ── Trip summary (used by MCP get_trip_summary tool) ──────────────────────
+
+export function getTripSummary(tripId: number) {
+  const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId) as Record<string, unknown> | undefined;
+  if (!trip) return null;
+
+  const ownerRow = getTripOwner(tripId);
+  if (!ownerRow) return null;
+  const { owner, members } = listMembers(tripId, ownerRow.user_id);
+
+  const { days: rawDays } = listDays(tripId);
+  const days = rawDays.map(({ notes_items, ...day }) => ({ ...day, notes: notes_items }));
+
+  const accommodations = listAccommodations(tripId);
+
+  const budgetItems = listBudgetItems(tripId);
+  const budget = {
+    item_count: budgetItems.length,
+    total: budgetItems.reduce((sum, i) => sum + (i.total_price || 0), 0),
+    currency: trip.currency,
+  };
+
+  const packingItems = listPackingItems(tripId);
+  const packing = {
+    total: packingItems.length,
+    checked: (packingItems as { checked: number }[]).filter(i => i.checked).length,
+  };
+
+  const reservations = listReservations(tripId);
+  const collab_notes = listCollabNotes(tripId);
+
+  return {
+    trip,
+    members: { owner, collaborators: members },
+    days,
+    accommodations,
+    budget,
+    packing,
+    reservations,
+    collab_notes,
+  };
 }
 
 // ── Custom error types ────────────────────────────────────────────────────

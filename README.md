@@ -155,7 +155,7 @@ services:
       # - OIDC_ONLY=false # Set to true to disable local password auth entirely (SSO only)
       # - OIDC_ADMIN_CLAIM=groups # OIDC claim used to identify admin users
       # - OIDC_ADMIN_VALUE=app-trek-admins # Value of the OIDC claim that grants admin role
-      # - OIDC_SCOPE=openid email profile groups # Space-separated OIDC scopes to request (must include scopes for any claim used by OIDC_ADMIN_CLAIM)
+      # - OIDC_SCOPE=openid email profile # Fully overrides the default. Add extra scopes as needed (e.g. add groups if using OIDC_ADMIN_CLAIM)
       # - OIDC_DISCOVERY_URL= # Override the OIDC discovery endpoint for providers with non-standard paths (e.g. Authentik)
       # - DEMO_MODE=false # Enable demo mode (resets data hourly)
       # - ADMIN_EMAIL=admin@trek.local # Initial admin e-mail — only used on first boot when no users exist
@@ -295,7 +295,7 @@ trek.yourdomain.com {
 | `OIDC_ONLY` | Disable local password auth entirely (first SSO login becomes admin) | `false` |
 | `OIDC_ADMIN_CLAIM` | OIDC claim used to identify admin users | — |
 | `OIDC_ADMIN_VALUE` | Value of the OIDC claim that grants admin role | — |
-| `OIDC_SCOPE` | Space-separated OIDC scopes to request. Must include scopes for any claim used by `OIDC_ADMIN_CLAIM` (e.g. add `groups` for group-based admin mapping) | `openid email profile groups` |
+| `OIDC_SCOPE` | Space-separated OIDC scopes to request. **Fully replaces** the default — always include `openid email profile` plus any extra scopes you need (e.g. add `groups` when using `OIDC_ADMIN_CLAIM`) | `openid email profile` |
 | `OIDC_DISCOVERY_URL` | Override the auto-constructed OIDC discovery endpoint. Useful for providers that expose it at a non-standard path (e.g. Authentik: `https://auth.example.com/application/o/trek/.well-known/openid-configuration`) | — |
 | **Initial Setup** | | |
 | `ADMIN_EMAIL` | Email for the first admin account created on initial boot. Must be set together with `ADMIN_PASSWORD`. If either is omitted a random password is generated and printed to the server log. Has no effect once any user exists. | `admin@trek.local` |

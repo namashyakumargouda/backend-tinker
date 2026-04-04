@@ -96,7 +96,7 @@ export default function InAppNotificationBell(): React.ReactElement {
                 {t('notifications.title')}
                 {unreadCount > 0 && (
                   <span className="ml-2 px-1.5 py-0.5 rounded-full text-xs font-medium"
-                    style={{ background: '#6366f1', color: '#fff' }}>
+                    style={{ background: 'var(--text-primary)', color: 'var(--bg-primary)' }}>
                     {unreadCount}
                   </span>
                 )}
@@ -133,7 +133,7 @@ export default function InAppNotificationBell(): React.ReactElement {
             <div className="overflow-y-auto flex-1">
               {isLoading && notifications.length === 0 ? (
                 <div className="flex items-center justify-center py-10">
-                  <div className="w-5 h-5 border-2 border-slate-200 border-t-indigo-500 rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--border-primary)', borderTopColor: 'var(--text-primary)' }} />
                 </div>
               ) : notifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-10 px-4 text-center gap-2">
@@ -154,7 +154,7 @@ export default function InAppNotificationBell(): React.ReactElement {
               className="w-full py-2.5 text-xs font-medium transition-colors flex-shrink-0"
               style={{
                 borderTop: '1px solid var(--border-secondary)',
-                color: '#6366f1',
+                color: 'var(--text-primary)',
                 background: 'transparent',
               }}
               onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}

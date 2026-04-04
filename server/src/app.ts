@@ -18,6 +18,7 @@ import daysRoutes, { accommodationsRouter as accommodationsRoutes } from './rout
 import placesRoutes from './routes/places';
 import assignmentsRoutes from './routes/assignments';
 import packingRoutes from './routes/packing';
+import todoRoutes from './routes/todo';
 import tagsRoutes from './routes/tags';
 import categoriesRoutes from './routes/categories';
 import adminRoutes from './routes/admin';
@@ -180,6 +181,7 @@ export function createApp(): express.Application {
   app.use('/api/trips/:tripId/accommodations', accommodationsRoutes);
   app.use('/api/trips/:tripId/places', placesRoutes);
   app.use('/api/trips/:tripId/packing', packingRoutes);
+  app.use('/api/trips/:tripId/todo', todoRoutes);
   app.use('/api/trips/:tripId/files', filesRoutes);
   app.use('/api/trips/:tripId/budget', budgetRoutes);
   app.use('/api/trips/:tripId/collab', collabRoutes);

@@ -59,10 +59,6 @@ export default function InAppNotificationItem({ notification, onClose }: Notific
         borderBottom: '1px solid var(--border-secondary)',
       }}
     >
-      {/* Unread dot */}
-      {!notification.is_read && (
-        <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full" style={{ background: '#6366f1' }} />
-      )}
 
       <div className="flex gap-3 items-start">
         {/* Sender avatar */}
@@ -102,7 +98,7 @@ export default function InAppNotificationItem({ notification, onClose }: Notific
                   title={t('notifications.markRead')}
                   className="p-1 rounded transition-colors"
                   style={{ color: 'var(--text-faint)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = '#6366f1' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-hover)'; e.currentTarget.style.color = 'var(--text-primary)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-faint)' }}
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
@@ -134,7 +130,7 @@ export default function InAppNotificationItem({ notification, onClose }: Notific
                 className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors"
                 style={{
                   background: notification.response === 'positive'
-                    ? '#6366f1'
+                    ? 'var(--text-primary)'
                     : notification.response === 'negative'
                       ? (dark ? '#27272a' : '#f1f5f9')
                       : (dark ? '#27272a' : '#f1f5f9'),

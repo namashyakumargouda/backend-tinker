@@ -133,7 +133,7 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onShare }:
         {tripTitle && (
           <>
             <span className="hidden sm:inline" style={{ color: 'var(--text-faint)' }}>/</span>
-            <span className="text-sm font-medium truncate max-w-48" style={{ color: 'var(--text-muted)' }}>
+            <span className="hidden sm:inline text-sm font-medium truncate max-w-48" style={{ color: 'var(--text-muted)' }}>
               {tripTitle}
             </span>
           </>
@@ -155,17 +155,18 @@ export default function Navbar({ tripTitle, tripId, onBack, showBack, onShare }:
         </button>
       )}
 
-      {/* Dark mode toggle (light ↔ dark, overrides auto) */}
+      {/* Dark mode toggle (light ↔ dark, overrides auto) — hidden on mobile */}
       <button onClick={toggleDarkMode} title={dark ? t('nav.lightMode') : t('nav.darkMode')}
-        className="p-2 rounded-lg transition-colors flex-shrink-0"
+        className="p-2 rounded-lg transition-colors flex-shrink-0 hidden sm:flex"
         style={{ color: 'var(--text-muted)' }}
         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
         {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
       </button>
 
-      {/* Notification bell */}
-      {user && <InAppNotificationBell />}
+      {/* Notification bell — only in trip view on mobile, everywhere on desktop */}
+      {user && tripId && <InAppNotificationBell />}
+      {user && !tripId && <span className="hidden sm:block"><InAppNotificationBell /></span>}
 
       {/* User menu */}
       {user && (

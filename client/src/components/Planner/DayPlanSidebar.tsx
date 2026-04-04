@@ -136,6 +136,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
   const [dragOverDayId, setDragOverDayId] = useState(null)
   const [hoveredId, setHoveredId] = useState(null)
   const [transportDetail, setTransportDetail] = useState(null)
+  const [transportPosVersion, setTransportPosVersion] = useState(0)
   const [timeConfirm, setTimeConfirm] = useState<{
     dayId: number; fromId: number; time: string;
     // For drag & drop reorder
@@ -211,13 +212,67 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
 
   const TRANSPORT_TYPES = new Set(['flight', 'train', 'bus', 'car', 'cruise'])
 
+  // Determine if a reservation's end_time represents a different date (multi-day)
+  const getEndDate = (r: Reservation) => {
+    const endStr = r.reservation_end_time || ''
+    return endStr.includes('T') ? endStr.split('T')[0] : null
+  }
+
+  // Get span phase: how a reservation relates to a specific day's date
+  const getSpanPhase = (r: Reservation, dayDate: string): 'single' | 'start' | 'middle' | 'end' => {
+    if (!r.reservation_time) return 'single'
+    const startDate = r.reservation_time.split('T')[0]
+    const endDate = getEndDate(r) || startDate
+    if (startDate === endDate) return 'single'
+    if (dayDate === startDate) return 'start'
+    if (dayDate === endDate) return 'end'
+    return 'middle'
+  }
+
+  // Get the appropriate display time for a reservation on a specific day
+  const getDisplayTimeForDay = (r: Reservation, dayDate: string): string | null => {
+    const phase = getSpanPhase(r, dayDate)
+    if (phase === 'end') return r.reservation_end_time || null
+    if (phase === 'middle') return null
+    return r.reservation_time || null
+  }
+
+  // Get phase label for multi-day badge
+  const getSpanLabel = (r: Reservation, phase: string): string | null => {
+    if (phase === 'single') return null
+    if (r.type === 'flight') return t(`reservations.span.${phase === 'start' ? 'departure' : phase === 'end' ? 'arrival' : 'inTransit'}`)
+    if (r.type === 'car') return t(`reservations.span.${phase === 'start' ? 'pickup' : phase === 'end' ? 'return' : 'active'}`)
+    return t(`reservations.span.${phase === 'start' ? 'start' : phase === 'end' ? 'end' : 'ongoing'}`)
+  }
+
   const getTransportForDay = (dayId: number) => {
     const day = days.find(d => d.id === dayId)
     if (!day?.date) return []
     return reservations.filter(r => {
-      if (!r.reservation_time || !TRANSPORT_TYPES.has(r.type)) return false
-      const resDate = r.reservation_time.split('T')[0]
-      return resDate === day.date
+      if (!r.reservation_time || r.type === 'hotel') return false
+      const startDate = r.reservation_time.split('T')[0]
+      const endDate = getEndDate(r)
+
+      if (endDate && endDate !== startDate) {
+        // Multi-day: show on any day in range (car middle handled elsewhere)
+        return day.date >= startDate && day.date <= endDate
+      } else {
+        // Single-day: show all non-hotel reservations that match this day's date
+        return startDate === day.date
+      }
+    })
+  }
+
+  // Get car rentals that are in "active" (middle) phase for a day — shown in day header, not timeline
+  const getActiveRentalsForDay = (dayId: number) => {
+    const day = days.find(d => d.id === dayId)
+    if (!day?.date) return []
+    return reservations.filter(r => {
+      if (r.type !== 'car' || !r.reservation_time) return false
+      const startDate = r.reservation_time.split('T')[0]
+      const endDate = getEndDate(r)
+      if (!endDate || endDate === startDate) return false
+      return day.date > startDate && day.date < endDate
     })
   }
 
@@ -279,47 +334,45 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
     const da = getDayAssignments(dayId)
     const dn = (dayNotes[String(dayId)] || []).slice().sort((a, b) => a.sort_order - b.sort_order)
     const transport = getTransportForDay(dayId)
+    const dayDate = days.find(d => d.id === dayId)?.date || ''
 
     // Initialize positions for transports that don't have one yet
     if (transport.some(r => r.day_plan_position == null)) {
       initTransportPositions(dayId)
     }
 
-    // Build base list: untimed places + notes sorted by order_index/sort_order
-    const timedPlaces = da.filter(a => parseTimeToMinutes(a.place?.place_time) !== null)
-    const freePlaces = da.filter(a => parseTimeToMinutes(a.place?.place_time) === null)
-
+    // Build base list: ALL places (timed and untimed) + notes sorted by order_index/sort_order
+    // Places keep their order_index ordering — only transports are inserted based on time.
     const baseItems = [
-      ...freePlaces.map(a => ({ type: 'place' as const, sortKey: a.order_index, data: a })),
+      ...da.map(a => ({ type: 'place' as const, sortKey: a.order_index, data: a })),
       ...dn.map(n => ({ type: 'note' as const, sortKey: n.sort_order, data: n })),
     ].sort((a, b) => a.sortKey - b.sortKey)
 
-    // Timed places + transports: compute sortKeys based on time, inserted among base items
-    const allTimed = [
-      ...timedPlaces.map(a => ({ type: 'place' as const, data: a, minutes: parseTimeToMinutes(a.place?.place_time)! })),
-      ...transport.map(r => ({ type: 'transport' as const, data: r, minutes: parseTimeToMinutes(r.reservation_time) ?? 0 })),
-    ].sort((a, b) => a.minutes - b.minutes)
+    // Only transports are inserted among base items based on time/position
+    const timedTransports = transport.map(r => ({
+      type: 'transport' as const,
+      data: r,
+      minutes: parseTimeToMinutes(getDisplayTimeForDay(r, dayDate)) ?? 0,
+    })).sort((a, b) => a.minutes - b.minutes)
 
-    if (allTimed.length === 0) return baseItems
+    if (timedTransports.length === 0) return baseItems
     if (baseItems.length === 0) {
-      return allTimed.map((item, i) => ({ ...item, sortKey: i }))
+      return timedTransports.map((item, i) => ({ ...item, sortKey: i }))
     }
 
-    // Insert timed items among base items using time-to-position mapping.
-    // Each timed item finds the last base place whose order_index corresponds
-    // to a reasonable position, then gets a fractional sortKey after it.
+    // Insert transports among base items using persisted position or time-to-position mapping.
     const result = [...baseItems]
-    for (let ti = 0; ti < allTimed.length; ti++) {
-      const timed = allTimed[ti]
+    for (let ti = 0; ti < timedTransports.length; ti++) {
+      const timed = timedTransports[ti]
       const minutes = timed.minutes
 
-      // For transports, use persisted position if available
-      if (timed.type === 'transport' && timed.data.day_plan_position != null) {
+      // Use persisted position if available
+      if (timed.data.day_plan_position != null) {
         result.push({ type: timed.type, sortKey: timed.data.day_plan_position, data: timed.data })
         continue
       }
 
-      // Find insertion position: after the last base item with time <= this item's time
+      // Find insertion position: after the last base item with time <= this transport's time
       let insertAfterKey = -Infinity
       for (const item of result) {
         if (item.type === 'place') {
@@ -350,7 +403,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
     return map
   // getMergedItems is redefined each render but captures assignments/dayNotes/reservations/days via closure
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days, assignments, dayNotes, reservations])
+  }, [days, assignments, dayNotes, reservations, transportPosVersion])
 
   const openAddNote = (dayId, e) => {
     e?.stopPropagation()
@@ -449,6 +502,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
           const res = reservations.find(r => r.id === tu.id)
           if (res) res.day_plan_position = tu.day_plan_position
         }
+        setTransportPosVersion(v => v + 1)
         await reservationsApi.updatePositions(tripId, transportUpdates)
       }
       if (prevAssignmentIds.length) {
@@ -968,6 +1022,17 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                           )
                         })
                       })()}
+                      {/* Active rental car badges */}
+                      {(() => {
+                        const activeRentals = getActiveRentalsForDay(day.id)
+                        if (activeRentals.length === 0) return null
+                        return activeRentals.map(r => (
+                          <span key={`rental-${r.id}`} onClick={e => { e.stopPropagation(); setTransportDetail(r) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 7px', borderRadius: 5, background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', flexShrink: 1, minWidth: 0, maxWidth: '40%', cursor: 'pointer' }}>
+                            <Car size={8} style={{ color: '#3b82f6', flexShrink: 0 }} />
+                            <span style={{ fontSize: 9, color: 'var(--text-muted)', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                          </span>
+                        ))
+                      })()}
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 2, flexWrap: 'wrap' }}>
@@ -1010,18 +1075,20 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                     const { placeId, assignmentId, noteId, fromDayId } = getDragData(e)
                     // Drop on transport card (detected via dropTargetRef for sync accuracy)
                     if (dropTargetRef.current?.startsWith('transport-')) {
-                      const transportId = Number(dropTargetRef.current.replace('transport-', ''))
+                      const isAfter = dropTargetRef.current.startsWith('transport-after-')
+                      const parts = dropTargetRef.current.replace('transport-after-', '').replace('transport-', '').split('-')
+                      const transportId = Number(parts[0])
 
                       if (placeId) {
                         onAssignToDay?.(parseInt(placeId), day.id)
                       } else if (assignmentId && fromDayId !== day.id) {
                         tripActions.moveAssignment(tripId, Number(assignmentId), fromDayId, day.id).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
                       } else if (assignmentId) {
-                        handleMergedDrop(day.id, 'place', Number(assignmentId), 'transport', transportId)
+                        handleMergedDrop(day.id, 'place', Number(assignmentId), 'transport', transportId, isAfter)
                       } else if (noteId && fromDayId !== day.id) {
                         tripActions.moveDayNote(tripId, fromDayId, day.id, Number(noteId)).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
                       } else if (noteId) {
-                        handleMergedDrop(day.id, 'note', Number(noteId), 'transport', transportId)
+                        handleMergedDrop(day.id, 'note', Number(noteId), 'transport', transportId, isAfter)
                       }
                       setDraggingId(null); setDropTargetKey(null); dragDataRef.current = null; window.__dragData = null
                       return
@@ -1062,8 +1129,9 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                     </div>
                   ) : (
                     merged.map((item, idx) => {
-                      const itemKey = item.type === 'transport' ? `transport-${item.data.id}` : (item.type === 'place' ? `place-${item.data.id}` : `note-${item.data.id}`)
+                      const itemKey = item.type === 'transport' ? `transport-${item.data.id}-${day.id}` : (item.type === 'place' ? `place-${item.data.id}` : `note-${item.data.id}`)
                       const showDropLine = (!!draggingId || !!dropTargetKey) && dropTargetKey === itemKey
+                      const showDropLineAfter = item.type === 'transport' && (!!draggingId || !!dropTargetKey) && dropTargetKey === `transport-after-${item.data.id}-${day.id}`
 
                       if (item.type === 'place') {
                         const assignment = item.data
@@ -1291,6 +1359,11 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                       // Transport booking (flight, train, bus, car, cruise)
                       if (item.type === 'transport') {
                         const res = item.data
+                        const spanPhase = getSpanPhase(res, day.date)
+
+                        // Car "active" (middle) days are shown in the day header, skip here
+                        if (res.type === 'car' && spanPhase === 'middle') return null
+
                         const TransportIcon = RES_ICONS[res.type] || Ticket
                         const color = '#3b82f6'
                         const meta = typeof res.metadata === 'string' ? JSON.parse(res.metadata || '{}') : (res.metadata || {})
@@ -1307,25 +1380,37 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                           subtitle = [meta.train_number, meta.platform ? `Gl. ${meta.platform}` : '', meta.seat ? `Sitz ${meta.seat}` : ''].filter(Boolean).join(' · ')
                         }
 
+                        // Multi-day span phase
+                        const spanLabel = getSpanLabel(res, spanPhase)
+                        const displayTime = getDisplayTimeForDay(res, day.date)
+
                         return (
-                          <React.Fragment key={`transport-${res.id}`}>
+                          <React.Fragment key={`transport-${res.id}-${day.id}`}>
                           {showDropLine && <div style={{ height: 2, background: 'var(--text-primary)', borderRadius: 1, margin: '2px 8px' }} />}
                           <div
                             onClick={() => setTransportDetail(res)}
-                            onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDropTargetKey(`transport-${res.id}`) }}
+                            onDragOver={e => {
+                              e.preventDefault(); e.stopPropagation()
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              const inBottom = e.clientY > rect.top + rect.height / 2
+                              const key = inBottom ? `transport-after-${res.id}-${day.id}` : `transport-${res.id}-${day.id}`
+                              if (dropTargetRef.current !== key) setDropTargetKey(key)
+                            }}
                             onDrop={e => {
                               e.preventDefault(); e.stopPropagation()
+                              const rect = e.currentTarget.getBoundingClientRect()
+                              const insertAfter = e.clientY > rect.top + rect.height / 2
                               const { placeId, assignmentId: fromAssignmentId, noteId, fromDayId } = getDragData(e)
                               if (placeId) {
                                 onAssignToDay?.(parseInt(placeId), day.id)
                               } else if (fromAssignmentId && fromDayId !== day.id) {
                                 tripActions.moveAssignment(tripId, Number(fromAssignmentId), fromDayId, day.id).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
                               } else if (fromAssignmentId) {
-                                handleMergedDrop(day.id, 'place', Number(fromAssignmentId), 'transport', res.id)
+                                handleMergedDrop(day.id, 'place', Number(fromAssignmentId), 'transport', res.id, insertAfter)
                               } else if (noteId && fromDayId !== day.id) {
                                 tripActions.moveDayNote(tripId, fromDayId, day.id, Number(noteId)).catch((err: unknown) => toast.error(err instanceof Error ? err.message : 'Unknown error'))
                               } else if (noteId) {
-                                handleMergedDrop(day.id, 'note', Number(noteId), 'transport', res.id)
+                                handleMergedDrop(day.id, 'note', Number(noteId), 'transport', res.id, insertAfter)
                               }
                               setDraggingId(null); setDropTargetKey(null); dragDataRef.current = null; window.__dragData = null
                             }}
@@ -1340,6 +1425,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                               background: isTransportHovered ? `${color}12` : `${color}08`,
                               cursor: 'pointer', userSelect: 'none',
                               transition: 'background 0.1s',
+                              opacity: spanPhase === 'middle' ? 0.65 : 1,
                             }}
                           >
                             <div style={{
@@ -1350,14 +1436,27 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                             </div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {spanLabel && (
+                                  <span style={{
+                                    fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 4, flexShrink: 0,
+                                    background: `${color}20`, color: color, textTransform: 'uppercase', letterSpacing: '0.03em',
+                                  }}>
+                                    {spanLabel}
+                                  </span>
+                                )}
                                 <span style={{ fontSize: 12.5, fontWeight: 500, color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                   {res.title}
                                 </span>
-                                {res.reservation_time?.includes('T') && (
+                                {displayTime?.includes('T') && (
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, flexShrink: 0, fontSize: 10, color: 'var(--text-faint)', fontWeight: 400, marginLeft: 6 }}>
                                     <Clock size={9} strokeWidth={2} />
-                                    {new Date(res.reservation_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}
-                                    {res.reservation_end_time?.includes('T') && ` – ${new Date(res.reservation_end_time).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}`}
+                                    {new Date(displayTime).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}
+                                    {spanPhase === 'single' && res.reservation_end_time && (() => {
+                                      const endStr = res.reservation_end_time.includes('T') ? res.reservation_end_time : (displayTime.split('T')[0] + 'T' + res.reservation_end_time)
+                                      return ` – ${new Date(endStr).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', hour12: timeFormat === '12h' })}`
+                                    })()}
+                                    {meta.departure_timezone && spanPhase === 'start' && ` ${meta.departure_timezone}`}
+                                    {meta.arrival_timezone && spanPhase === 'end' && ` ${meta.arrival_timezone}`}
                                   </span>
                                 )}
                               </div>
@@ -1368,6 +1467,7 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
                               )}
                             </div>
                           </div>
+                          {showDropLineAfter && <div style={{ height: 2, background: 'var(--text-primary)', borderRadius: 1, margin: '2px 8px' }} />}
                           </React.Fragment>
                         )
                       }

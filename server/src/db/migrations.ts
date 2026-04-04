@@ -701,6 +701,38 @@ function runMigrations(db: Database.Database): void {
       db.exec('ALTER TABLE `trip_album_links` ADD COLUMN provider TEXT NOT NULL DEFAULT "immich"');
       db.exec('ALTER TABLE `trip_album_links` RENAME COLUMN immich_album_id TO album_id');
     },
+    () => {
+      // Track which album link each photo was synced from
+      try { db.exec("ALTER TABLE trip_photos ADD COLUMN album_link_id INTEGER REFERENCES trip_album_links(id) ON DELETE SET NULL DEFAULT NULL"); } catch (err: any) { if (!err.message?.includes('duplicate column name')) throw err; }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_trip_photos_album_link ON trip_photos(album_link_id)');
+    },
+    // Migration 68: Todo items
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS todo_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          checked INTEGER DEFAULT 0,
+          category TEXT,
+          sort_order INTEGER DEFAULT 0,
+          due_date TEXT,
+          description TEXT,
+          assigned_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          priority INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_todo_items_trip_id ON todo_items(trip_id);
+
+        CREATE TABLE IF NOT EXISTS todo_category_assignees (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+          category_name TEXT NOT NULL,
+          user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE(trip_id, category_name, user_id)
+        );
+      `);
+    },
   ];
 
   if (currentVersion < migrations.length) {

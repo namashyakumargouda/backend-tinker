@@ -1,18 +1,29 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp';
 import { z } from 'zod';
-import path from 'path';
-import fs from 'fs';
-import { db, canAccessTrip, isOwner } from '../db/database';
+import { canAccessTrip } from '../db/database';
 import { broadcast } from '../websocket';
+import { isDemoUser } from '../services/authService';
+import {
+  listTrips, createTrip, updateTrip, deleteTrip, getTripSummary,
+  isOwner, verifyTripAccess,
+} from '../services/tripService';
+import { listPlaces, createPlace, updatePlace, deletePlace } from '../services/placeService';
+import { listCategories } from '../services/categoryService';
+import {
+  dayExists, placeExists, createAssignment, assignmentExistsInDay,
+  deleteAssignment, reorderAssignments, getAssignmentForTrip, updateTime,
+} from '../services/assignmentService';
+import { createBudgetItem, updateBudgetItem, deleteBudgetItem } from '../services/budgetService';
+import { createItem as createPackingItem, updateItem as updatePackingItem, deleteItem as deletePackingItem } from '../services/packingService';
+import { createReservation, getReservation, updateReservation, deleteReservation } from '../services/reservationService';
+import { getDay, updateDay, validateAccommodationRefs } from '../services/dayService';
+import { createNote as createDayNote, getNote as getDayNote, updateNote as updateDayNote, deleteNote as deleteDayNote, dayExists as dayNoteExists } from '../services/dayNoteService';
+import { createNote as createCollabNote, updateNote as updateCollabNote, deleteNote as deleteCollabNote } from '../services/collabService';
+import {
+  markCountryVisited, unmarkCountryVisited, createBucketItem, deleteBucketItem,
+} from '../services/atlasService';
 
-const MS_PER_DAY = 86400000;
-const MAX_TRIP_DAYS = 90;
-
-function isDemoUser(userId: number): boolean {
-  if (process.env.DEMO_MODE !== 'true') return false;
-  const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string } | undefined;
-  return user?.email === 'demo@nomad.app';
-}
+const MAX_MCP_TRIP_DAYS = 90;
 
 function demoDenied() {
   return { content: [{ type: 'text' as const, text: 'Write operations are disabled in demo mode.' }], isError: true };
@@ -24,25 +35,6 @@ function noAccess() {
 
 function ok(data: unknown) {
   return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
-}
-
-/** Create days for a newly created trip (fresh insert, no existing days). */
-function createDaysForNewTrip(tripId: number | bigint, startDate: string | null, endDate: string | null): void {
-  const insert = db.prepare('INSERT INTO days (trip_id, day_number, date) VALUES (?, ?, ?)');
-  if (startDate && endDate) {
-    const [sy, sm, sd] = startDate.split('-').map(Number);
-    const [ey, em, ed] = endDate.split('-').map(Number);
-    const startMs = Date.UTC(sy, sm - 1, sd);
-    const endMs = Date.UTC(ey, em - 1, ed);
-    const numDays = Math.min(Math.floor((endMs - startMs) / MS_PER_DAY) + 1, MAX_TRIP_DAYS);
-    for (let i = 0; i < numDays; i++) {
-      const d = new Date(startMs + i * MS_PER_DAY);
-      const date = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
-      insert.run(tripId, i + 1, date);
-    }
-  } else {
-    for (let i = 0; i < 7; i++) insert.run(tripId, i + 1, null);
-  }
 }
 
 export function registerTools(server: McpServer, userId: number): void {
@@ -75,14 +67,7 @@ export function registerTools(server: McpServer, userId: number): void {
       if (start_date && end_date && new Date(end_date) < new Date(start_date)) {
         return { content: [{ type: 'text' as const, text: 'End date must be after start date.' }], isError: true };
       }
-      const trip = db.transaction(() => {
-        const result = db.prepare(
-          'INSERT INTO trips (user_id, title, description, start_date, end_date, currency) VALUES (?, ?, ?, ?, ?, ?)'
-        ).run(userId, title, description || null, start_date || null, end_date || null, currency || 'EUR');
-        const tripId = result.lastInsertRowid as number;
-        createDaysForNewTrip(tripId, start_date || null, end_date || null);
-        return db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
-      })();
+      const { trip } = createTrip(userId, { title, description, start_date, end_date, currency }, MAX_MCP_TRIP_DAYS);
       return ok({ trip });
     }
   );
@@ -113,21 +98,9 @@ export function registerTools(server: McpServer, userId: number): void {
         if (isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== end_date)
           return { content: [{ type: 'text' as const, text: 'end_date is not a valid calendar date.' }], isError: true };
       }
-      const existing = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId) as Record<string, unknown> & { title: string; description: string; start_date: string; end_date: string; currency: string } | undefined;
-      if (!existing) return noAccess();
-      db.prepare(
-        'UPDATE trips SET title = ?, description = ?, start_date = ?, end_date = ?, currency = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?'
-      ).run(
-        title ?? existing.title,
-        description !== undefined ? description : existing.description,
-        start_date !== undefined ? start_date : existing.start_date,
-        end_date !== undefined ? end_date : existing.end_date,
-        currency ?? existing.currency,
-        tripId
-      );
-      const updated = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId);
-      broadcast(tripId, 'trip:updated', { trip: updated });
-      return ok({ trip: updated });
+      const { updatedTrip } = updateTrip(tripId, userId, { title, description, start_date, end_date, currency }, 'user');
+      broadcast(tripId, 'trip:updated', { trip: updatedTrip });
+      return ok({ trip: updatedTrip });
     }
   );
 
@@ -142,7 +115,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!isOwner(tripId, userId)) return noAccess();
-      db.prepare('DELETE FROM trips WHERE id = ?').run(tripId);
+      deleteTrip(tripId, userId, 'user');
       return ok({ success: true, tripId });
     }
   );
@@ -156,18 +129,7 @@ export function registerTools(server: McpServer, userId: number): void {
       },
     },
     async ({ include_archived }) => {
-      const trips = db.prepare(`
-        SELECT t.*, u.username as owner_username,
-          (SELECT COUNT(*) FROM days d WHERE d.trip_id = t.id) as day_count,
-          (SELECT COUNT(*) FROM places p WHERE p.trip_id = t.id) as place_count,
-          CASE WHEN t.user_id = ? THEN 1 ELSE 0 END as is_owner
-        FROM trips t
-        JOIN users u ON u.id = t.user_id
-        LEFT JOIN trip_members tm ON tm.trip_id = t.id AND tm.user_id = ?
-        WHERE (t.user_id = ? OR tm.user_id IS NOT NULL)
-          AND (? = 1 OR t.is_archived = 0)
-        ORDER BY t.updated_at DESC
-      `).all(userId, userId, userId, include_archived ? 1 : 0);
+      const trips = listTrips(userId, include_archived ? null : 0);
       return ok({ trips });
     }
   );
@@ -196,11 +158,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, name, description, lat, lng, address, category_id, google_place_id, osm_id, notes, website, phone }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const result = db.prepare(`
-        INSERT INTO places (trip_id, name, description, lat, lng, address, category_id, google_place_id, osm_id, notes, website, phone, transport_mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(tripId, name, description || null, lat ?? null, lng ?? null, address || null, category_id || null, google_place_id || null, osm_id || null, notes || null, website || null, phone || null, 'walking');
-      const place = db.prepare('SELECT * FROM places WHERE id = ?').get(result.lastInsertRowid);
+      const place = createPlace(String(tripId), { name, description, lat, lng, address, category_id, google_place_id, osm_id, notes, website, phone });
       broadcast(tripId, 'place:created', { place });
       return ok({ place });
     }
@@ -226,25 +184,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, placeId, name, description, lat, lng, address, notes, website, phone }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM places WHERE id = ? AND trip_id = ?').get(placeId, tripId) as Record<string, unknown> | undefined;
-      if (!existing) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
-      db.prepare(`
-        UPDATE places SET
-          name = ?, description = ?, lat = ?, lng = ?, address = ?, notes = ?, website = ?, phone = ?,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(
-        name ?? existing.name,
-        description !== undefined ? description : existing.description,
-        lat !== undefined ? lat : existing.lat,
-        lng !== undefined ? lng : existing.lng,
-        address !== undefined ? address : existing.address,
-        notes !== undefined ? notes : existing.notes,
-        website !== undefined ? website : existing.website,
-        phone !== undefined ? phone : existing.phone,
-        placeId
-      );
-      const place = db.prepare('SELECT * FROM places WHERE id = ?').get(placeId);
+      const place = updatePlace(String(tripId), String(placeId), { name, description, lat, lng, address, notes, website, phone });
+      if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
       broadcast(tripId, 'place:updated', { place });
       return ok({ place });
     }
@@ -262,9 +203,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, placeId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const place = db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(placeId, tripId);
-      if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
-      db.prepare('DELETE FROM places WHERE id = ?').run(placeId);
+      const deleted = deletePlace(String(tripId), String(placeId));
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
       broadcast(tripId, 'place:deleted', { placeId });
       return ok({ success: true });
     }
@@ -279,7 +219,7 @@ export function registerTools(server: McpServer, userId: number): void {
       inputSchema: {},
     },
     async () => {
-      const categories = db.prepare('SELECT id, name, color, icon FROM categories ORDER BY name ASC').all();
+      const categories = listCategories();
       return ok({ categories });
     }
   );
@@ -333,20 +273,9 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, placeId, notes }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const day = db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(dayId, tripId);
-      if (!day) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
-      const place = db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(placeId, tripId);
-      if (!place) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
-      const maxOrder = db.prepare('SELECT MAX(order_index) as max FROM day_assignments WHERE day_id = ?').get(dayId) as { max: number | null };
-      const orderIndex = (maxOrder.max !== null ? maxOrder.max : -1) + 1;
-      const result = db.prepare(
-        'INSERT INTO day_assignments (day_id, place_id, order_index, notes) VALUES (?, ?, ?, ?)'
-      ).run(dayId, placeId, orderIndex, notes || null);
-      const assignment = db.prepare(`
-        SELECT da.*, p.name as place_name, p.address, p.lat, p.lng
-        FROM day_assignments da JOIN places p ON da.place_id = p.id
-        WHERE da.id = ?
-      `).get(result.lastInsertRowid);
+      if (!dayExists(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
+      if (!placeExists(placeId, tripId)) return { content: [{ type: 'text' as const, text: 'Place not found.' }], isError: true };
+      const assignment = createAssignment(dayId, placeId, notes || null);
       broadcast(tripId, 'assignment:created', { assignment });
       return ok({ assignment });
     }
@@ -365,11 +294,9 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, assignmentId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const assignment = db.prepare(
-        'SELECT da.id FROM day_assignments da JOIN days d ON da.day_id = d.id WHERE da.id = ? AND da.day_id = ? AND d.trip_id = ?'
-      ).get(assignmentId, dayId, tripId);
-      if (!assignment) return { content: [{ type: 'text' as const, text: 'Assignment not found.' }], isError: true };
-      db.prepare('DELETE FROM day_assignments WHERE id = ?').run(assignmentId);
+      if (!assignmentExistsInDay(assignmentId, dayId, tripId))
+        return { content: [{ type: 'text' as const, text: 'Assignment not found.' }], isError: true };
+      deleteAssignment(assignmentId);
       broadcast(tripId, 'assignment:deleted', { assignmentId, dayId });
       return ok({ success: true });
     }
@@ -392,12 +319,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, name, category, total_price, note }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const maxOrder = db.prepare('SELECT MAX(sort_order) as max FROM budget_items WHERE trip_id = ?').get(tripId) as { max: number | null };
-      const sortOrder = (maxOrder.max !== null ? maxOrder.max : -1) + 1;
-      const result = db.prepare(
-        'INSERT INTO budget_items (trip_id, category, name, total_price, note, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(tripId, category || 'Other', name, total_price, note || null, sortOrder);
-      const item = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(result.lastInsertRowid);
+      const item = createBudgetItem(tripId, { category, name, total_price, note });
       broadcast(tripId, 'budget:created', { item });
       return ok({ item });
     }
@@ -415,9 +337,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const item = db.prepare('SELECT id FROM budget_items WHERE id = ? AND trip_id = ?').get(itemId, tripId);
-      if (!item) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
-      db.prepare('DELETE FROM budget_items WHERE id = ?').run(itemId);
+      const deleted = deleteBudgetItem(itemId, tripId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
       broadcast(tripId, 'budget:deleted', { itemId });
       return ok({ success: true });
     }
@@ -438,12 +359,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, name, category }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const maxOrder = db.prepare('SELECT MAX(sort_order) as max FROM packing_items WHERE trip_id = ?').get(tripId) as { max: number | null };
-      const sortOrder = (maxOrder.max !== null ? maxOrder.max : -1) + 1;
-      const result = db.prepare(
-        'INSERT INTO packing_items (trip_id, name, checked, category, sort_order) VALUES (?, ?, ?, ?, ?)'
-      ).run(tripId, name, 0, category || 'General', sortOrder);
-      const item = db.prepare('SELECT * FROM packing_items WHERE id = ?').get(result.lastInsertRowid);
+      const item = createPackingItem(tripId, { name, category: category || 'General' });
       broadcast(tripId, 'packing:created', { item });
       return ok({ item });
     }
@@ -462,12 +378,10 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId, checked }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const item = db.prepare('SELECT id FROM packing_items WHERE id = ? AND trip_id = ?').get(itemId, tripId);
+      const item = updatePackingItem(tripId, itemId, { checked: checked ? 1 : 0 }, ['checked']);
       if (!item) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      db.prepare('UPDATE packing_items SET checked = ? WHERE id = ?').run(checked ? 1 : 0, itemId);
-      const updated = db.prepare('SELECT * FROM packing_items WHERE id = ?').get(itemId);
-      broadcast(tripId, 'packing:updated', { item: updated });
-      return ok({ item: updated });
+      broadcast(tripId, 'packing:updated', { item });
+      return ok({ item });
     }
   );
 
@@ -483,9 +397,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const item = db.prepare('SELECT id FROM packing_items WHERE id = ? AND trip_id = ?').get(itemId, tripId);
-      if (!item) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      db.prepare('DELETE FROM packing_items WHERE id = ?').run(itemId);
+      const deleted = deletePackingItem(tripId, itemId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
       broadcast(tripId, 'packing:deleted', { itemId });
       return ok({ success: true });
     }
@@ -519,43 +432,28 @@ export function registerTools(server: McpServer, userId: number): void {
       if (!canAccessTrip(tripId, userId)) return noAccess();
 
       // Validate that all referenced IDs belong to this trip
-      if (day_id) {
-        if (!db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(day_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'day_id does not belong to this trip.' }], isError: true };
-      }
-      if (place_id) {
-        if (!db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(place_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'place_id does not belong to this trip.' }], isError: true };
-      }
-      if (start_day_id) {
-        if (!db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(start_day_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'start_day_id does not belong to this trip.' }], isError: true };
-      }
-      if (end_day_id) {
-        if (!db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(end_day_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'end_day_id does not belong to this trip.' }], isError: true };
-      }
-      if (assignment_id) {
-        if (!db.prepare('SELECT da.id FROM day_assignments da JOIN days d ON da.day_id = d.id WHERE da.id = ? AND d.trip_id = ?').get(assignment_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'assignment_id does not belong to this trip.' }], isError: true };
-      }
+      if (day_id && !getDay(day_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'day_id does not belong to this trip.' }], isError: true };
+      if (place_id && !placeExists(place_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'place_id does not belong to this trip.' }], isError: true };
+      if (start_day_id && !getDay(start_day_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'start_day_id does not belong to this trip.' }], isError: true };
+      if (end_day_id && !getDay(end_day_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'end_day_id does not belong to this trip.' }], isError: true };
+      if (assignment_id && !getAssignmentForTrip(assignment_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'assignment_id does not belong to this trip.' }], isError: true };
 
-      const reservation = db.transaction(() => {
-        let accommodationId: number | null = null;
-        if (type === 'hotel' && place_id && start_day_id && end_day_id) {
-          const accResult = db.prepare(
-            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_out || null, confirmation_number || null);
-          accommodationId = accResult.lastInsertRowid as number;
-        }
-        const result = db.prepare(`
-          INSERT INTO reservations (trip_id, title, type, reservation_time, location, confirmation_number, notes, day_id, place_id, assignment_id, accommodation_id, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `).run(tripId, title, type, reservation_time || null, location || null, confirmation_number || null, notes || null, day_id || null, place_id || null, assignment_id || null, accommodationId, 'pending');
-        return db.prepare('SELECT * FROM reservations WHERE id = ?').get(result.lastInsertRowid);
-      })();
+      const createAccommodation = (type === 'hotel' && place_id && start_day_id && end_day_id)
+        ? { place_id, start_day_id, end_day_id, check_in: check_in || undefined, check_out: check_out || undefined, confirmation: confirmation_number || undefined }
+        : undefined;
 
-      if (type === 'hotel' && place_id && start_day_id && end_day_id) {
+      const { reservation, accommodationCreated } = createReservation(tripId, {
+        title, type, reservation_time, location, confirmation_number,
+        notes, day_id, place_id, assignment_id,
+        create_accommodation: createAccommodation,
+      });
+
+      if (accommodationCreated) {
         broadcast(tripId, 'accommodation:created', {});
       }
       broadcast(tripId, 'reservation:created', { reservation });
@@ -575,16 +473,10 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, reservationId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const reservation = db.prepare('SELECT id, accommodation_id FROM reservations WHERE id = ? AND trip_id = ?').get(reservationId, tripId) as { id: number; accommodation_id: number | null } | undefined;
-      if (!reservation) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
-      db.transaction(() => {
-        if (reservation.accommodation_id) {
-          db.prepare('DELETE FROM day_accommodations WHERE id = ?').run(reservation.accommodation_id);
-        }
-        db.prepare('DELETE FROM reservations WHERE id = ?').run(reservationId);
-      })();
-      if (reservation.accommodation_id) {
-        broadcast(tripId, 'accommodation:deleted', { accommodationId: reservation.accommodation_id });
+      const { deleted, accommodationDeleted } = deleteReservation(reservationId, tripId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
+      if (accommodationDeleted) {
+        broadcast(tripId, 'accommodation:deleted', { accommodationId: deleted.accommodation_id });
       }
       broadcast(tripId, 'reservation:deleted', { reservationId });
       return ok({ success: true });
@@ -608,36 +500,28 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, reservationId, place_id, start_day_id, end_day_id, check_in, check_out }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const reservation = db.prepare('SELECT * FROM reservations WHERE id = ? AND trip_id = ?').get(reservationId, tripId) as Record<string, unknown> | undefined;
-      if (!reservation) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
-      if (reservation.type !== 'hotel') return { content: [{ type: 'text' as const, text: 'Reservation is not of type hotel.' }], isError: true };
+      const current = getReservation(reservationId, tripId);
+      if (!current) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
+      if (current.type !== 'hotel') return { content: [{ type: 'text' as const, text: 'Reservation is not of type hotel.' }], isError: true };
 
-      if (!db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(place_id, tripId))
+      if (!placeExists(place_id, tripId))
         return { content: [{ type: 'text' as const, text: 'place_id does not belong to this trip.' }], isError: true };
-      if (!db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(start_day_id, tripId))
+      if (!getDay(start_day_id, tripId))
         return { content: [{ type: 'text' as const, text: 'start_day_id does not belong to this trip.' }], isError: true };
-      if (!db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(end_day_id, tripId))
+      if (!getDay(end_day_id, tripId))
         return { content: [{ type: 'text' as const, text: 'end_day_id does not belong to this trip.' }], isError: true };
 
-      let accommodationId = reservation.accommodation_id as number | null;
-      const isNewAccommodation = !accommodationId;
-      db.transaction(() => {
-        if (accommodationId) {
-          db.prepare('UPDATE day_accommodations SET place_id = ?, start_day_id = ?, end_day_id = ?, check_in = COALESCE(?, check_in), check_out = COALESCE(?, check_out) WHERE id = ?')
-            .run(place_id, start_day_id, end_day_id, check_in || null, check_out || null, accommodationId);
-        } else {
-          const accResult = db.prepare(
-            'INSERT INTO day_accommodations (trip_id, place_id, start_day_id, end_day_id, check_in, check_out, confirmation) VALUES (?, ?, ?, ?, ?, ?, ?)'
-          ).run(tripId, place_id, start_day_id, end_day_id, check_in || null, check_out || null, reservation.confirmation_number || null);
-          accommodationId = accResult.lastInsertRowid as number;
-        }
-        db.prepare('UPDATE reservations SET place_id = ?, accommodation_id = ? WHERE id = ?')
-          .run(place_id, accommodationId, reservationId);
-      })();
+      const isNewAccommodation = !current.accommodation_id;
+      const { reservation } = updateReservation(reservationId, tripId, {
+        place_id,
+        type: current.type,
+        status: current.status as string,
+        create_accommodation: { place_id, start_day_id, end_day_id, check_in: check_in || undefined, check_out: check_out || undefined },
+      }, current);
+
       broadcast(tripId, isNewAccommodation ? 'accommodation:created' : 'accommodation:updated', {});
-      const updated = db.prepare('SELECT * FROM reservations WHERE id = ?').get(reservationId);
-      broadcast(tripId, 'reservation:updated', { reservation: updated });
-      return ok({ reservation: updated, accommodation_id: accommodationId });
+      broadcast(tripId, 'reservation:updated', { reservation });
+      return ok({ reservation, accommodation_id: (reservation as any).accommodation_id });
     }
   );
 
@@ -657,28 +541,15 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, assignmentId, place_time, end_time }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const assignment = db.prepare(`
-        SELECT da.* FROM day_assignments da
-        JOIN days d ON da.day_id = d.id
-        WHERE da.id = ? AND d.trip_id = ?
-      `).get(assignmentId, tripId) as Record<string, unknown> | undefined;
-      if (!assignment) return { content: [{ type: 'text' as const, text: 'Assignment not found.' }], isError: true };
-      db.prepare('UPDATE day_assignments SET assignment_time = ?, assignment_end_time = ? WHERE id = ?')
-        .run(
-          place_time !== undefined ? place_time : assignment.assignment_time,
-          end_time !== undefined ? end_time : assignment.assignment_end_time,
-          assignmentId
-        );
-      const updated = db.prepare(`
-        SELECT da.id, da.day_id, da.order_index, da.notes as assignment_notes,
-          da.assignment_time, da.assignment_end_time,
-          p.id as place_id, p.name, p.address
-        FROM day_assignments da
-        JOIN places p ON da.place_id = p.id
-        WHERE da.id = ?
-      `).get(assignmentId);
-      broadcast(tripId, 'assignment:updated', { assignment: updated });
-      return ok({ assignment: updated });
+      const existing = getAssignmentForTrip(assignmentId, tripId);
+      if (!existing) return { content: [{ type: 'text' as const, text: 'Assignment not found.' }], isError: true };
+      const assignment = updateTime(
+        assignmentId,
+        place_time !== undefined ? place_time : (existing as any).assignment_time,
+        end_time !== undefined ? end_time : (existing as any).assignment_end_time
+      );
+      broadcast(tripId, 'assignment:updated', { assignment });
+      return ok({ assignment });
     }
   );
 
@@ -695,10 +566,9 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, title }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const day = db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(dayId, tripId);
-      if (!day) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
-      db.prepare('UPDATE days SET title = ? WHERE id = ?').run(title, dayId);
-      const updated = db.prepare('SELECT * FROM days WHERE id = ?').get(dayId);
+      const current = getDay(dayId, tripId);
+      if (!current) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
+      const updated = updateDay(dayId, current, title !== undefined ? { title } : {});
       broadcast(tripId, 'day:updated', { day: updated });
       return ok({ day: updated });
     }
@@ -727,39 +597,21 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, reservationId, title, type, reservation_time, location, confirmation_number, notes, status, place_id, assignment_id }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM reservations WHERE id = ? AND trip_id = ?').get(reservationId, tripId) as Record<string, unknown> | undefined;
+      const existing = getReservation(reservationId, tripId);
       if (!existing) return { content: [{ type: 'text' as const, text: 'Reservation not found.' }], isError: true };
 
-      if (place_id != null) {
-        if (!db.prepare('SELECT id FROM places WHERE id = ? AND trip_id = ?').get(place_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'place_id does not belong to this trip.' }], isError: true };
-      }
-      if (assignment_id != null) {
-        if (!db.prepare('SELECT da.id FROM day_assignments da JOIN days d ON da.day_id = d.id WHERE da.id = ? AND d.trip_id = ?').get(assignment_id, tripId))
-          return { content: [{ type: 'text' as const, text: 'assignment_id does not belong to this trip.' }], isError: true };
-      }
+      if (place_id != null && !placeExists(place_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'place_id does not belong to this trip.' }], isError: true };
+      if (assignment_id != null && !getAssignmentForTrip(assignment_id, tripId))
+        return { content: [{ type: 'text' as const, text: 'assignment_id does not belong to this trip.' }], isError: true };
 
-      db.prepare(`
-        UPDATE reservations SET
-          title = ?, type = ?, reservation_time = ?, location = ?,
-          confirmation_number = ?, notes = ?, status = ?,
-          place_id = ?, assignment_id = ?
-        WHERE id = ?
-      `).run(
-        title ?? existing.title,
-        type ?? existing.type,
-        reservation_time !== undefined ? reservation_time : existing.reservation_time,
-        location !== undefined ? location : existing.location,
-        confirmation_number !== undefined ? confirmation_number : existing.confirmation_number,
-        notes !== undefined ? notes : existing.notes,
-        status ?? existing.status,
-        place_id !== undefined ? place_id : existing.place_id,
-        assignment_id !== undefined ? assignment_id : existing.assignment_id,
-        reservationId
-      );
-      const updated = db.prepare('SELECT * FROM reservations WHERE id = ?').get(reservationId);
-      broadcast(tripId, 'reservation:updated', { reservation: updated });
-      return ok({ reservation: updated });
+      const { reservation } = updateReservation(reservationId, tripId, {
+        title, type, reservation_time, location, confirmation_number, notes, status,
+        place_id: place_id !== undefined ? place_id ?? undefined : undefined,
+        assignment_id: assignment_id !== undefined ? assignment_id ?? undefined : undefined,
+      }, existing);
+      broadcast(tripId, 'reservation:updated', { reservation });
+      return ok({ reservation });
     }
   );
 
@@ -783,24 +635,10 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId, name, category, total_price, persons, days, note }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM budget_items WHERE id = ? AND trip_id = ?').get(itemId, tripId) as Record<string, unknown> | undefined;
-      if (!existing) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
-      db.prepare(`
-        UPDATE budget_items SET
-          name = ?, category = ?, total_price = ?, persons = ?, days = ?, note = ?
-        WHERE id = ?
-      `).run(
-        name ?? existing.name,
-        category ?? existing.category,
-        total_price !== undefined ? total_price : existing.total_price,
-        persons !== undefined ? persons : existing.persons,
-        days !== undefined ? days : existing.days,
-        note !== undefined ? note : existing.note,
-        itemId
-      );
-      const updated = db.prepare('SELECT * FROM budget_items WHERE id = ?').get(itemId);
-      broadcast(tripId, 'budget:updated', { item: updated });
-      return ok({ item: updated });
+      const item = updateBudgetItem(itemId, tripId, { name, category, total_price, persons, days, note });
+      if (!item) return { content: [{ type: 'text' as const, text: 'Budget item not found.' }], isError: true };
+      broadcast(tripId, 'budget:updated', { item });
+      return ok({ item });
     }
   );
 
@@ -820,16 +658,11 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, itemId, name, category }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM packing_items WHERE id = ? AND trip_id = ?').get(itemId, tripId) as Record<string, unknown> | undefined;
-      if (!existing) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
-      db.prepare('UPDATE packing_items SET name = ?, category = ? WHERE id = ?').run(
-        name ?? existing.name,
-        category ?? existing.category,
-        itemId
-      );
-      const updated = db.prepare('SELECT * FROM packing_items WHERE id = ?').get(itemId);
-      broadcast(tripId, 'packing:updated', { item: updated });
-      return ok({ item: updated });
+      const bodyKeys = ['name', 'category'].filter(k => k === 'name' ? name !== undefined : category !== undefined);
+      const item = updatePackingItem(tripId, itemId, { name, category }, bodyKeys);
+      if (!item) return { content: [{ type: 'text' as const, text: 'Packing item not found.' }], isError: true };
+      broadcast(tripId, 'packing:updated', { item });
+      return ok({ item });
     }
   );
 
@@ -848,13 +681,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, assignmentIds }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const day = db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(dayId, tripId);
-      if (!day) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
-      const update = db.prepare('UPDATE day_assignments SET order_index = ? WHERE id = ? AND day_id = ?');
-      const updateMany = db.transaction((ids: number[]) => {
-        ids.forEach((id, index) => update.run(index, id, dayId));
-      });
-      updateMany(assignmentIds);
+      if (!getDay(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
+      reorderAssignments(dayId, assignmentIds);
       broadcast(tripId, 'assignment:reordered', { dayId, assignmentIds });
       return ok({ success: true, dayId, order: assignmentIds });
     }
@@ -872,106 +700,9 @@ export function registerTools(server: McpServer, userId: number): void {
     },
     async ({ tripId }) => {
       if (!canAccessTrip(tripId, userId)) return noAccess();
-
-      const trip = db.prepare('SELECT * FROM trips WHERE id = ?').get(tripId) as Record<string, unknown> | undefined;
-      if (!trip) return noAccess();
-
-      // Members
-      const owner = db.prepare('SELECT id, username, avatar FROM users WHERE id = ?').get(trip.user_id as number);
-      const members = db.prepare(`
-        SELECT u.id, u.username, u.avatar, tm.added_at
-        FROM trip_members tm JOIN users u ON tm.user_id = u.id
-        WHERE tm.trip_id = ?
-      `).all(tripId);
-
-      // Days with assignments
-      const days = db.prepare('SELECT * FROM days WHERE trip_id = ? ORDER BY day_number ASC').all(tripId) as (Record<string, unknown> & { id: number })[];
-      const dayIds = days.map(d => d.id);
-      const assignmentsByDay: Record<number, unknown[]> = {};
-      if (dayIds.length > 0) {
-        const placeholders = dayIds.map(() => '?').join(',');
-        const assignments = db.prepare(`
-          SELECT da.id, da.day_id, da.order_index, da.notes as assignment_notes,
-            p.id as place_id, p.name, p.address, p.lat, p.lng,
-            COALESCE(da.assignment_time, p.place_time) as place_time,
-            c.name as category_name, c.icon as category_icon
-          FROM day_assignments da
-          JOIN places p ON da.place_id = p.id
-          LEFT JOIN categories c ON p.category_id = c.id
-          WHERE da.day_id IN (${placeholders})
-          ORDER BY da.order_index ASC
-        `).all(...dayIds) as (Record<string, unknown> & { day_id: number })[];
-        for (const a of assignments) {
-          if (!assignmentsByDay[a.day_id]) assignmentsByDay[a.day_id] = [];
-          assignmentsByDay[a.day_id].push(a);
-        }
-      }
-      // Day notes
-      const dayNotesByDay: Record<number, unknown[]> = {};
-      if (dayIds.length > 0) {
-        const placeholders = dayIds.map(() => '?').join(',');
-        const dayNotes = db.prepare(`
-          SELECT * FROM day_notes WHERE day_id IN (${placeholders}) ORDER BY sort_order ASC
-        `).all(...dayIds) as (Record<string, unknown> & { day_id: number })[];
-        for (const n of dayNotes) {
-          if (!dayNotesByDay[n.day_id]) dayNotesByDay[n.day_id] = [];
-          dayNotesByDay[n.day_id].push(n);
-        }
-      }
-
-      const daysWithAssignments = days.map(d => ({
-        ...d,
-        assignments: assignmentsByDay[d.id] || [],
-        notes: dayNotesByDay[d.id] || [],
-      }));
-
-      // Accommodations
-      const accommodations = db.prepare(`
-        SELECT da.*, p.name as place_name, ds.day_number as start_day_number, de.day_number as end_day_number
-        FROM day_accommodations da
-        JOIN places p ON da.place_id = p.id
-        LEFT JOIN days ds ON da.start_day_id = ds.id
-        LEFT JOIN days de ON da.end_day_id = de.id
-        WHERE da.trip_id = ?
-        ORDER BY ds.day_number ASC
-      `).all(tripId);
-
-      // Budget summary
-      const budgetStats = db.prepare(`
-        SELECT COUNT(*) as item_count, COALESCE(SUM(total_price), 0) as total
-        FROM budget_items WHERE trip_id = ?
-      `).get(tripId) as { item_count: number; total: number };
-
-      // Packing summary
-      const packingStats = db.prepare(`
-        SELECT COUNT(*) as total, SUM(CASE WHEN checked = 1 THEN 1 ELSE 0 END) as checked
-        FROM packing_items WHERE trip_id = ?
-      `).get(tripId) as { total: number; checked: number };
-
-      // Upcoming reservations (all, sorted by time)
-      const reservations = db.prepare(`
-        SELECT r.*, d.day_number
-        FROM reservations r
-        LEFT JOIN days d ON r.day_id = d.id
-        WHERE r.trip_id = ?
-        ORDER BY r.reservation_time ASC, r.created_at ASC
-      `).all(tripId);
-
-      // Collab notes
-      const collabNotes = db.prepare(
-        'SELECT * FROM collab_notes WHERE trip_id = ? ORDER BY pinned DESC, updated_at DESC'
-      ).all(tripId);
-
-      return ok({
-        trip,
-        members: { owner, collaborators: members },
-        days: daysWithAssignments,
-        accommodations,
-        budget: { ...budgetStats, currency: trip.currency },
-        packing: packingStats,
-        reservations,
-        collab_notes: collabNotes,
-      });
+      const summary = getTripSummary(tripId);
+      if (!summary) return noAccess();
+      return ok(summary);
     }
   );
 
@@ -991,10 +722,7 @@ export function registerTools(server: McpServer, userId: number): void {
     },
     async ({ name, lat, lng, country_code, notes }) => {
       if (isDemoUser(userId)) return demoDenied();
-      const result = db.prepare(
-        'INSERT INTO bucket_list (user_id, name, lat, lng, country_code, notes) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(userId, name, lat ?? null, lng ?? null, country_code || null, notes || null);
-      const item = db.prepare('SELECT * FROM bucket_list WHERE id = ?').get(result.lastInsertRowid);
+      const item = createBucketItem(userId, { name, lat, lng, country_code, notes });
       return ok({ item });
     }
   );
@@ -1009,9 +737,8 @@ export function registerTools(server: McpServer, userId: number): void {
     },
     async ({ itemId }) => {
       if (isDemoUser(userId)) return demoDenied();
-      const item = db.prepare('SELECT id FROM bucket_list WHERE id = ? AND user_id = ?').get(itemId, userId);
-      if (!item) return { content: [{ type: 'text' as const, text: 'Bucket list item not found.' }], isError: true };
-      db.prepare('DELETE FROM bucket_list WHERE id = ?').run(itemId);
+      const deleted = deleteBucketItem(userId, itemId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Bucket list item not found.' }], isError: true };
       return ok({ success: true });
     }
   );
@@ -1028,7 +755,7 @@ export function registerTools(server: McpServer, userId: number): void {
     },
     async ({ country_code }) => {
       if (isDemoUser(userId)) return demoDenied();
-      db.prepare('INSERT OR IGNORE INTO visited_countries (user_id, country_code) VALUES (?, ?)').run(userId, country_code.toUpperCase());
+      markCountryVisited(userId, country_code.toUpperCase());
       return ok({ success: true, country_code: country_code.toUpperCase() });
     }
   );
@@ -1043,7 +770,7 @@ export function registerTools(server: McpServer, userId: number): void {
     },
     async ({ country_code }) => {
       if (isDemoUser(userId)) return demoDenied();
-      db.prepare('DELETE FROM visited_countries WHERE user_id = ? AND country_code = ?').run(userId, country_code.toUpperCase());
+      unmarkCountryVisited(userId, country_code.toUpperCase());
       return ok({ success: true, country_code: country_code.toUpperCase() });
     }
   );
@@ -1065,11 +792,7 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, title, content, category, color }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const result = db.prepare(`
-        INSERT INTO collab_notes (trip_id, user_id, title, content, category, color)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(tripId, userId, title, content || null, category || 'General', color || '#6366f1');
-      const note = db.prepare('SELECT * FROM collab_notes WHERE id = ?').get(result.lastInsertRowid);
+      const note = createCollabNote(tripId, userId, { title, content, category, color });
       broadcast(tripId, 'collab:note:created', { note });
       return ok({ note });
     }
@@ -1092,26 +815,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, noteId, title, content, category, color, pinned }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM collab_notes WHERE id = ? AND trip_id = ?').get(noteId, tripId);
-      if (!existing) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      db.prepare(`
-        UPDATE collab_notes SET
-          title = CASE WHEN ? THEN ? ELSE title END,
-          content = CASE WHEN ? THEN ? ELSE content END,
-          category = CASE WHEN ? THEN ? ELSE category END,
-          color = CASE WHEN ? THEN ? ELSE color END,
-          pinned = CASE WHEN ? THEN ? ELSE pinned END,
-          updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `).run(
-        title !== undefined ? 1 : 0, title !== undefined ? title : null,
-        content !== undefined ? 1 : 0, content !== undefined ? content : null,
-        category !== undefined ? 1 : 0, category !== undefined ? category : null,
-        color !== undefined ? 1 : 0, color !== undefined ? color : null,
-        pinned !== undefined ? 1 : 0, pinned !== undefined ? (pinned ? 1 : 0) : null,
-        noteId
-      );
-      const note = db.prepare('SELECT * FROM collab_notes WHERE id = ?').get(noteId);
+      const note = updateCollabNote(tripId, noteId, { title, content, category, color, pinned });
+      if (!note) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
       broadcast(tripId, 'collab:note:updated', { note });
       return ok({ note });
     }
@@ -1129,19 +834,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, noteId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT id FROM collab_notes WHERE id = ? AND trip_id = ?').get(noteId, tripId);
-      if (!existing) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      const noteFiles = db.prepare('SELECT filename FROM trip_files WHERE note_id = ?').all(noteId) as { filename: string }[];
-      const uploadsDir = path.resolve(__dirname, '../../uploads');
-      for (const f of noteFiles) {
-        const resolved = path.resolve(path.join(uploadsDir, 'files', f.filename));
-        if (!resolved.startsWith(uploadsDir)) continue;
-        try { fs.unlinkSync(resolved); } catch {}
-      }
-      db.transaction(() => {
-        db.prepare('DELETE FROM trip_files WHERE note_id = ?').run(noteId);
-        db.prepare('DELETE FROM collab_notes WHERE id = ?').run(noteId);
-      })();
+      const deleted = deleteCollabNote(tripId, noteId);
+      if (!deleted) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
       broadcast(tripId, 'collab:note:deleted', { noteId });
       return ok({ success: true });
     }
@@ -1164,12 +858,8 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, text, time, icon }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const day = db.prepare('SELECT id FROM days WHERE id = ? AND trip_id = ?').get(dayId, tripId);
-      if (!day) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
-      const result = db.prepare(
-        'INSERT INTO day_notes (day_id, trip_id, text, time, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)'
-      ).run(dayId, tripId, text.trim(), time || null, icon || '📝', 9999);
-      const note = db.prepare('SELECT * FROM day_notes WHERE id = ?').get(result.lastInsertRowid);
+      if (!dayNoteExists(dayId, tripId)) return { content: [{ type: 'text' as const, text: 'Day not found.' }], isError: true };
+      const note = createDayNote(dayId, tripId, text, time, icon);
       broadcast(tripId, 'dayNote:created', { dayId, note });
       return ok({ note });
     }
@@ -1191,17 +881,11 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, noteId, text, time, icon }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const existing = db.prepare('SELECT * FROM day_notes WHERE id = ? AND day_id = ? AND trip_id = ?').get(noteId, dayId, tripId) as Record<string, unknown> | undefined;
+      const existing = getDayNote(noteId, dayId, tripId);
       if (!existing) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      db.prepare('UPDATE day_notes SET text = ?, time = ?, icon = ? WHERE id = ?').run(
-        text !== undefined ? text.trim() : existing.text,
-        time !== undefined ? time : existing.time,
-        icon ?? existing.icon,
-        noteId
-      );
-      const updated = db.prepare('SELECT * FROM day_notes WHERE id = ?').get(noteId);
-      broadcast(tripId, 'dayNote:updated', { dayId, note: updated });
-      return ok({ note: updated });
+      const note = updateDayNote(noteId, existing, { text, time: time !== undefined ? time : undefined, icon });
+      broadcast(tripId, 'dayNote:updated', { dayId, note });
+      return ok({ note });
     }
   );
 
@@ -1218,9 +902,9 @@ export function registerTools(server: McpServer, userId: number): void {
     async ({ tripId, dayId, noteId }) => {
       if (isDemoUser(userId)) return demoDenied();
       if (!canAccessTrip(tripId, userId)) return noAccess();
-      const note = db.prepare('SELECT id FROM day_notes WHERE id = ? AND day_id = ? AND trip_id = ?').get(noteId, dayId, tripId);
+      const note = getDayNote(noteId, dayId, tripId);
       if (!note) return { content: [{ type: 'text' as const, text: 'Note not found.' }], isError: true };
-      db.prepare('DELETE FROM day_notes WHERE id = ?').run(noteId);
+      deleteDayNote(noteId);
       broadcast(tripId, 'dayNote:deleted', { noteId, dayId });
       return ok({ success: true });
     }

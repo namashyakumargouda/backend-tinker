@@ -17,6 +17,7 @@ import { ReservationModal } from '../components/Planner/ReservationModal'
 import MemoriesPanel from '../components/Memories/MemoriesPanel'
 import ReservationsPanel from '../components/Planner/ReservationsPanel'
 import PackingListPanel from '../components/Packing/PackingListPanel'
+import TodoListPanel from '../components/Todo/TodoListPanel'
 import FileManager from '../components/Files/FileManager'
 import BudgetPanel from '../components/Budget/BudgetPanel'
 import CollabPanel from '../components/Collab/CollabPanel'
@@ -31,7 +32,40 @@ import { useTripWebSocket } from '../hooks/useTripWebSocket'
 import { useRouteCalculation } from '../hooks/useRouteCalculation'
 import { usePlaceSelection } from '../hooks/usePlaceSelection'
 import { usePlannerHistory } from '../hooks/usePlannerHistory'
-import type { Accommodation, TripMember, Day, Place, Reservation } from '../types'
+import type { Accommodation, TripMember, Day, Place, Reservation, PackingItem, TodoItem } from '../types'
+import { ListTodo } from 'lucide-react'
+
+function ListsContainer({ tripId, packingItems, todoItems }: { tripId: number; packingItems: PackingItem[]; todoItems: TodoItem[] }) {
+  const [subTab, setSubTab] = useState<'packing' | 'todo'>(() => {
+    return (sessionStorage.getItem(`trip-lists-subtab-${tripId}`) as 'packing' | 'todo') || 'packing'
+  })
+  const setSubTabPersist = (tab: 'packing' | 'todo') => { setSubTab(tab); sessionStorage.setItem(`trip-lists-subtab-${tripId}`, tab) }
+  const { t } = useTranslation()
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 4, padding: '4px 16px 0', borderBottom: '1px solid var(--border-faint)', marginBottom: 8 }}>
+        {([
+          { id: 'packing' as const, label: t('todo.subtab.packing'), icon: PackageCheck },
+          { id: 'todo' as const, label: t('todo.subtab.todo'), icon: ListTodo },
+        ]).map(tab => (
+          <button key={tab.id} onClick={() => setSubTabPersist(tab.id)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, padding: '8px 14px',
+              border: 'none', cursor: 'pointer', fontFamily: 'inherit', background: 'none',
+              color: subTab === tab.id ? 'var(--text-primary)' : 'var(--text-faint)',
+              borderBottom: subTab === tab.id ? '2px solid var(--text-primary)' : '2px solid transparent',
+              marginBottom: -1, transition: 'color 0.15s',
+            }}>
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      {subTab === 'packing' && <PackingListPanel tripId={tripId} items={packingItems} />}
+      {subTab === 'todo' && <TodoListPanel tripId={tripId} items={todoItems} />}
+    </div>
+  )
+}
 
 export default function TripPlannerPage(): React.ReactElement | null {
   const { id: tripId } = useParams<{ id: string }>()
@@ -44,6 +78,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
   const places = useTripStore(s => s.places)
   const assignments = useTripStore(s => s.assignments)
   const packingItems = useTripStore(s => s.packingItems)
+  const todoItems = useTripStore(s => s.todoItems)
   const categories = useTripStore(s => s.categories)
   const reservations = useTripStore(s => s.reservations)
   const budgetItems = useTripStore(s => s.budgetItems)
@@ -90,7 +125,7 @@ export default function TripPlannerPage(): React.ReactElement | null {
   const TRIP_TABS = [
     { id: 'plan', label: t('trip.tabs.plan'), icon: Map },
     { id: 'buchungen', label: t('trip.tabs.reservations'), shortLabel: t('trip.tabs.reservationsShort'), icon: Ticket },
-    ...(enabledAddons.packing ? [{ id: 'packliste', label: t('trip.tabs.packing'), shortLabel: t('trip.tabs.packingShort'), icon: PackageCheck }] : []),
+    ...(enabledAddons.packing ? [{ id: 'listen', label: t('trip.tabs.lists'), shortLabel: t('trip.tabs.listsShort'), icon: PackageCheck }] : []),
     ...(enabledAddons.budget ? [{ id: 'finanzplan', label: t('trip.tabs.budget'), icon: Wallet }] : []),
     ...(enabledAddons.documents ? [{ id: 'dateien', label: t('trip.tabs.files'), icon: FolderOpen }] : []),
     ...(enabledAddons.memories ? [{ id: 'memories', label: t('memories.title'), icon: Camera }] : []),
@@ -863,9 +898,9 @@ export default function TripPlannerPage(): React.ReactElement | null {
           </div>
         )}
 
-        {activeTab === 'packliste' && (
-          <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain', maxWidth: 1200, margin: '0 auto', width: '100%', padding: '8px 0' }}>
-            <PackingListPanel tripId={tripId} items={packingItems} />
+        {activeTab === 'listen' && (
+          <div style={{ height: '100%', overflowY: 'auto', overscrollBehavior: 'contain', maxWidth: 1800, margin: '0 auto', width: '100%', padding: '8px 0' }}>
+            <ListsContainer tripId={tripId} packingItems={packingItems} todoItems={todoItems} />
           </div>
         )}
 
