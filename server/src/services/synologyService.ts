@@ -6,6 +6,7 @@ import { decrypt_api_key, maybe_encrypt_api_key } from './apiKeyCrypto';
 import { checkSsrf } from '../utils/ssrfGuard';
 import { addTripPhotos, getAlbumIdFromLink, Selection, updateSyncTimeForAlbumLink } from './memoriesService';
 import { error } from 'node:console';
+import { th } from 'zod/locales';
 
 const SYNOLOGY_API_TIMEOUT_MS = 30000;
 const SYNOLOGY_PROVIDER = 'synologyphotos';
@@ -403,8 +404,8 @@ export async function listSynologyAlbums(userId: number): Promise<{ albums: Arra
 
 
 export async function syncSynologyAlbumLink(userId: number, tripId: string, linkId: string): Promise<{ added: number; total: number }> {
-    const albumId = getAlbumIdFromLink(tripId, linkId, userId);
-    if (!albumId) {
+    const response = getAlbumIdFromLink(tripId, linkId, userId);
+    if (!response.success) {
         throw new SynologyServiceError(404, 'Album link not found');
     }
 
@@ -417,7 +418,7 @@ export async function syncSynologyAlbumLink(userId: number, tripId: string, link
             api: 'SYNO.Foto.Browse.Item',
             method: 'list',
             version: 1,
-            album_id: Number(albumId),
+            album_id: Number(response.data),
             offset,
             limit: pageSize,
             additional: ['thumbnail'],
@@ -438,12 +439,12 @@ export async function syncSynologyAlbumLink(userId: number, tripId: string, link
         asset_ids: allItems.map(item => String(item.additional?.thumbnail?.cache_key || '')).filter(id => id),
     };
 
-    const addResult = addTripPhotos(tripId, userId, true, [selection]);
-    if ('error' in addResult) throw new SynologyServiceError(addResult.status, addResult.error);
-
     updateSyncTimeForAlbumLink(linkId);
 
-    return { added: addResult.added, total: allItems.length };
+    const result = await addTripPhotos(tripId, userId, true, [selection]);
+    if ('error' in result) throw new SynologyServiceError(result.error.status, result.error.message);
+
+    return { added: result.data.added, total: allItems.length };
 }
 
 export async function searchSynologyPhotos(userId: number, from?: string, to?: string, offset = 0, limit = 300): Promise<{ assets: SynologyPhotoInfo[]; total: number; hasMore: boolean }> {

@@ -3,6 +3,7 @@ import { maybe_encrypt_api_key, decrypt_api_key } from './apiKeyCrypto';
 import { checkSsrf } from '../utils/ssrfGuard';
 import { writeAudit } from './auditLog';
 import { addTripPhotos, getAlbumIdFromLink, Selection, updateSyncTimeForAlbumLink } from './memoriesService';
+import { error } from 'node:console';
 
 // ── Credentials ────────────────────────────────────────────────────────────
 
@@ -314,14 +315,14 @@ export async function syncAlbumAssets(
   linkId: string,
   userId: number
 ): Promise<{ success?: boolean; added?: number; total?: number; error?: string; status?: number }> {
-  const albumId = getAlbumIdFromLink(tripId, linkId, userId);
-  if (!albumId) return { error: 'Album link not found', status: 404 };
+  const response = getAlbumIdFromLink(tripId, linkId, userId);
+  if (!response.success) return { error: 'Album link not found', status: 404 };
 
   const creds = getImmichCredentials(userId);
   if (!creds) return { error: 'Immich not configured', status: 400 };
 
   try {
-    const resp = await fetch(`${creds.immich_url}/api/albums/${albumId}`, {
+    const resp = await fetch(`${creds.immich_url}/api/albums/${response.data}`, {
       headers: { 'x-api-key': creds.immich_api_key, 'Accept': 'application/json' },
       signal: AbortSignal.timeout(15000),
     });
@@ -334,12 +335,12 @@ export async function syncAlbumAssets(
       asset_ids: assets.map((a: any) => a.id),
     };
 
-    const addResult = addTripPhotos(tripId, userId, true, [selection]);
-    if ('error' in addResult) return { error: addResult.error, status: addResult.status };
+    const result = await addTripPhotos(tripId, userId, true, [selection]);
+    if ('error' in result) return { error: result.error.message, status: result.error.status };
 
     updateSyncTimeForAlbumLink(linkId);
 
-    return { success: true, added: addResult.added, total: assets.length };
+    return { success: true, added: result.data.added, total: assets.length };
   } catch {
     return { error: 'Could not reach Immich', status: 502 };
   }
