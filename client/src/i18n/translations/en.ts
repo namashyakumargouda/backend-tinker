@@ -113,6 +113,8 @@ const en: Record<string, string | { name: string; category: string }[]> = {
   'dashboard.tripDescriptionPlaceholder': 'What is this trip about?',
   'dashboard.startDate': 'Start Date',
   'dashboard.endDate': 'End Date',
+  'dashboard.dayCount': 'Number of Days',
+  'dashboard.dayCountHint': 'How many days to plan for when no travel dates are set.',
   'dashboard.noDateHint': 'No date set — 7 default days will be created. You can change this anytime.',
   'dashboard.coverImage': 'Cover Image',
   'dashboard.addCoverImage': 'Add cover image (or drag & drop)',

@@ -99,6 +99,8 @@ const pl: Record<string, string | { name: string; category: string }[]> = {
   'dashboard.tripDescriptionPlaceholder': 'Opisz swoją podróż',
   'dashboard.startDate': 'Data rozpoczęcia',
   'dashboard.endDate': 'Data zakończenia',
+  'dashboard.dayCount': 'Liczba dni',
+  'dashboard.dayCountHint': 'Ile dni zaplanować, gdy nie ustawiono dat podróży.',
   'dashboard.noDateHint': 'Nie ustawiono daty — zostanie utworzonych 7 domyślnych dni. Możesz to zmienić w dowolnym momencie.',
   'dashboard.coverImage': 'Okładka',
   'dashboard.addCoverImage': 'Dodaj okładkę (lub przeciągnij i upuść)',

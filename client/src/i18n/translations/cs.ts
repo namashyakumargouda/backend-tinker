@@ -114,6 +114,8 @@ const cs: Record<string, string | { name: string; category: string }[]> = {
   'dashboard.tripDescriptionPlaceholder': 'O čem je tato cesta?',
   'dashboard.startDate': 'Datum začátku',
   'dashboard.endDate': 'Datum konce',
+  'dashboard.dayCount': 'Počet dnů',
+  'dashboard.dayCountHint': 'Kolik dnů naplánovat, když nejsou nastavena data cesty.',
   'dashboard.noDateHint': 'Datum nezadáno – výchozí délka nastavena na 7 dní. Toto lze kdykoli změnit.',
   'dashboard.coverImage': 'Úvodní obrázek',
   'dashboard.addCoverImage': 'Vybrat úvodní obrázek (nebo přetáhnout sem)',

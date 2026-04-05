@@ -114,6 +114,8 @@ const es: Record<string, string> = {
   'dashboard.tripDescriptionPlaceholder': '¿De qué trata este viaje?',
   'dashboard.startDate': 'Fecha de inicio',
   'dashboard.endDate': 'Fecha de fin',
+  'dashboard.dayCount': 'Número de días',
+  'dashboard.dayCountHint': 'Cuántos días planificar cuando no se han establecido fechas de viaje.',
   'dashboard.noDateHint': 'Sin fecha definida: se crearán 7 días por defecto. Puedes cambiarlo cuando quieras.',
   'dashboard.coverImage': 'Imagen de portada',
   'dashboard.addCoverImage': 'Añadir imagen de portada',

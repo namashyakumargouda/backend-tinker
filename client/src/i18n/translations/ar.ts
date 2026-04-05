@@ -118,6 +118,8 @@ const ar: Record<string, string | { name: string; category: string }[]> = {
   'dashboard.tripDescriptionPlaceholder': 'عمّ تتحدث هذه الرحلة؟',
   'dashboard.startDate': 'تاريخ البداية',
   'dashboard.endDate': 'تاريخ النهاية',
+  'dashboard.dayCount': 'عدد الأيام',
+  'dashboard.dayCountHint': 'عدد الأيام المراد التخطيط لها عندما لا يتم تحديد تواريخ السفر.',
   'dashboard.noDateHint': 'لا يوجد تاريخ محدد. سيتم إنشاء 7 أيام افتراضية ويمكنك تغيير ذلك لاحقًا.',
   'dashboard.coverImage': 'صورة الغلاف',
   'dashboard.addCoverImage': 'إضافة صورة غلاف',

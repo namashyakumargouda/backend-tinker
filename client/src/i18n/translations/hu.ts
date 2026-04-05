@@ -113,6 +113,8 @@ const hu: Record<string, string | { name: string; category: string }[]> = {
   'dashboard.tripDescriptionPlaceholder': 'Miről szól ez az utazás?',
   'dashboard.startDate': 'Kezdő dátum',
   'dashboard.endDate': 'Záró dátum',
+  'dashboard.dayCount': 'Napok száma',
+  'dashboard.dayCountHint': 'Hány napot tervezzen, ha nincsenek utazási dátumok megadva.',
   'dashboard.noDateHint': 'Nincs dátum megadva — 7 alapértelmezett nap jön létre. Ezt bármikor módosíthatod.',
   'dashboard.coverImage': 'Borítókép',
   'dashboard.addCoverImage': 'Borítókép hozzáadása',

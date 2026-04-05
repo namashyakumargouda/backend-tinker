@@ -113,6 +113,8 @@ const ru: Record<string, string> = {
   'dashboard.tripDescriptionPlaceholder': 'О чём эта поездка?',
   'dashboard.startDate': 'Дата начала',
   'dashboard.endDate': 'Дата окончания',
+  'dashboard.dayCount': 'Количество дней',
+  'dashboard.dayCountHint': 'Сколько дней планировать, если даты поездки не указаны.',
   'dashboard.noDateHint': 'Дата не указана — будет создано 7 дней по умолчанию. Вы можете изменить это в любое время.',
   'dashboard.coverImage': 'Обложка',
   'dashboard.addCoverImage': 'Добавить обложку',

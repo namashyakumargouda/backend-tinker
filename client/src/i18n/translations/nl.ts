@@ -113,6 +113,8 @@ const nl: Record<string, string> = {
   'dashboard.tripDescriptionPlaceholder': 'Waar gaat deze reis over?',
   'dashboard.startDate': 'Startdatum',
   'dashboard.endDate': 'Einddatum',
+  'dashboard.dayCount': 'Aantal dagen',
+  'dashboard.dayCountHint': 'Hoeveel dagen te plannen wanneer er geen reisdata zijn ingesteld.',
   'dashboard.noDateHint': 'Geen datum ingesteld — er worden standaard 7 dagen aangemaakt. Je kunt dit altijd wijzigen.',
   'dashboard.coverImage': 'Omslagafbeelding',
   'dashboard.addCoverImage': 'Omslagafbeelding toevoegen',

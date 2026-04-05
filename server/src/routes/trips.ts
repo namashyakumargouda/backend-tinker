@@ -74,7 +74,7 @@ router.post('/', authenticate, (req: Request, res: Response) => {
   if (!checkPermission('trip_create', authReq.user.role, null, authReq.user.id, false))
     return res.status(403).json({ error: 'No permission to create trips' });
 
-  const { title, description, currency, reminder_days } = req.body;
+  const { title, description, currency, reminder_days, day_count } = req.body;
   if (!title) return res.status(400).json({ error: 'Title is required' });
 
   const toDateStr = (d: Date) => d.toISOString().slice(0, 10);
@@ -84,19 +84,18 @@ router.post('/', authenticate, (req: Request, res: Response) => {
   let end_date: string | null = req.body.end_date || null;
 
   if (!start_date && !end_date) {
-    const tomorrow = addDays(new Date(), 1);
-    start_date = toDateStr(tomorrow);
-    end_date = toDateStr(addDays(tomorrow, 7));
+    // No dates: create dateless placeholder days (day_count or default 7)
   } else if (start_date && !end_date) {
-    end_date = toDateStr(addDays(new Date(start_date), 7));
+    end_date = toDateStr(addDays(new Date(start_date), 6));
   } else if (!start_date && end_date) {
-    start_date = toDateStr(addDays(new Date(end_date), -7));
+    start_date = toDateStr(addDays(new Date(end_date), -6));
   }
 
-  if (new Date(end_date!) < new Date(start_date!))
+  if (start_date && end_date && new Date(end_date) < new Date(start_date))
     return res.status(400).json({ error: 'End date must be after start date' });
 
-  const { trip, tripId, reminderDays } = createTrip(authReq.user.id, { title, description, start_date, end_date, currency, reminder_days });
+  const parsedDayCount = day_count ? Math.min(Math.max(Number(day_count) || 7, 1), 365) : undefined;
+  const { trip, tripId, reminderDays } = createTrip(authReq.user.id, { title, description, start_date, end_date, currency, reminder_days, day_count: parsedDayCount });
 
   writeAudit({ userId: authReq.user.id, action: 'trip.create', ip: getClientIp(req), details: { tripId, title, reminder_days: reminderDays === 0 ? 'none' : `${reminderDays} days` } });
   if (reminderDays > 0) {
@@ -136,7 +135,7 @@ router.put('/:id', authenticate, (req: Request, res: Response) => {
       return res.status(403).json({ error: 'No permission to change cover image' });
   }
   // General edit check (title, description, dates, currency, reminder_days)
-  const editFields = ['title', 'description', 'start_date', 'end_date', 'currency', 'reminder_days'];
+  const editFields = ['title', 'description', 'start_date', 'end_date', 'currency', 'reminder_days', 'day_count'];
   if (editFields.some(f => req.body[f] !== undefined)) {
     if (!checkPermission('trip_edit', authReq.user.role, tripOwnerId, authReq.user.id, isMember))
       return res.status(403).json({ error: 'No permission to edit this trip' });

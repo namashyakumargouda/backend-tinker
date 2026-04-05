@@ -113,6 +113,8 @@ const zh: Record<string, string> = {
   'dashboard.tripDescriptionPlaceholder': '这次旅行是关于什么的？',
   'dashboard.startDate': '开始日期',
   'dashboard.endDate': '结束日期',
+  'dashboard.dayCount': '天数',
+  'dashboard.dayCountHint': '未设置旅行日期时要规划的天数。',
   'dashboard.noDateHint': '未设置日期——将默认创建 7 天。你可以随时修改。',
   'dashboard.coverImage': '封面图片',
   'dashboard.addCoverImage': '添加封面图片',

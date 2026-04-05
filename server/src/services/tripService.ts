@@ -32,7 +32,7 @@ export { isOwner };
 
 // ── Day generation ────────────────────────────────────────────────────────
 
-export function generateDays(tripId: number | bigint | string, startDate: string | null, endDate: string | null, maxDays?: number) {
+export function generateDays(tripId: number | bigint | string, startDate: string | null, endDate: string | null, maxDays?: number, dayCount?: number) {
   const existing = db.prepare('SELECT id, day_number, date FROM days WHERE trip_id = ?').all(tripId) as { id: number; day_number: number; date: string | null }[];
 
   if (!startDate || !endDate) {
@@ -41,12 +41,13 @@ export function generateDays(tripId: number | bigint | string, startDate: string
     if (withDates.length > 0) {
       db.prepare(`DELETE FROM days WHERE trip_id = ? AND date IS NOT NULL`).run(tripId);
     }
-    const needed = 7 - datelessExisting.length;
+    const targetCount = Math.min(Math.max(dayCount ?? (datelessExisting.length || 7), 1), MAX_TRIP_DAYS);
+    const needed = targetCount - datelessExisting.length;
     if (needed > 0) {
       const insert = db.prepare('INSERT INTO days (trip_id, day_number, date) VALUES (?, ?, NULL)');
       for (let i = 0; i < needed; i++) insert.run(tripId, datelessExisting.length + i + 1);
     } else if (needed < 0) {
-      const toRemove = datelessExisting.slice(7);
+      const toRemove = datelessExisting.slice(targetCount);
       const del = db.prepare('DELETE FROM days WHERE id = ?');
       for (const d of toRemove) del.run(d.id);
     }
@@ -139,6 +140,7 @@ interface CreateTripData {
   end_date?: string | null;
   currency?: string;
   reminder_days?: number;
+  day_count?: number;
 }
 
 export function createTrip(userId: number, data: CreateTripData, maxDays?: number) {
@@ -152,7 +154,7 @@ export function createTrip(userId: number, data: CreateTripData, maxDays?: numbe
   `).run(userId, data.title, data.description || null, data.start_date || null, data.end_date || null, data.currency || 'EUR', rd);
 
   const tripId = result.lastInsertRowid;
-  generateDays(tripId, data.start_date || null, data.end_date || null, maxDays);
+  generateDays(tripId, data.start_date || null, data.end_date || null, maxDays, data.day_count);
 
   const trip = db.prepare(`${TRIP_SELECT} WHERE t.id = :tripId`).get({ userId, tripId });
   return { trip, tripId: Number(tripId), reminderDays: rd };
@@ -175,6 +177,7 @@ interface UpdateTripData {
   is_archived?: boolean | number;
   cover_image?: string;
   reminder_days?: number;
+  day_count?: number;
 }
 
 export interface UpdateTripResult {
@@ -214,8 +217,9 @@ export function updateTrip(tripId: string | number, userId: number, data: Update
     WHERE id=?
   `).run(newTitle, newDesc, newStart || null, newEnd || null, newCurrency, newArchived, newCover, newReminder, tripId);
 
-  if (newStart !== trip.start_date || newEnd !== trip.end_date)
-    generateDays(tripId, newStart || null, newEnd || null);
+  const dayCount = data.day_count ? Math.min(Math.max(Number(data.day_count) || 7, 1), MAX_TRIP_DAYS) : undefined;
+  if (newStart !== trip.start_date || newEnd !== trip.end_date || dayCount)
+    generateDays(tripId, newStart || null, newEnd || null, undefined, dayCount);
 
   const changes: Record<string, unknown> = {};
   if (title && title !== trip.title) changes.title = title;
