@@ -91,10 +91,11 @@ router.put('/positions', authenticate, (req: Request, res: Response) => {
 
   if (!Array.isArray(positions)) return res.status(400).json({ error: 'positions must be an array' });
 
-  updatePositions(tripId, positions);
+  const { day_id } = req.body;
+  updatePositions(tripId, positions, day_id);
 
   res.json({ success: true });
-  broadcast(tripId, 'reservation:positions', { positions }, req.headers['x-socket-id'] as string);
+  broadcast(tripId, 'reservation:positions', { positions, day_id }, req.headers['x-socket-id'] as string);
 });
 
 router.put('/:id', authenticate, (req: Request, res: Response) => {

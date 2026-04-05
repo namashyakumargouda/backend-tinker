@@ -6,7 +6,7 @@ export function verifyTripAccess(tripId: string | number, userId: number) {
 }
 
 export function listReservations(tripId: string | number) {
-  return db.prepare(`
+  const reservations = db.prepare(`
     SELECT r.*, d.day_number, p.name as place_name, r.assignment_id,
       ap.place_id as accommodation_place_id, acc_p.name as accommodation_name
     FROM reservations r
@@ -16,7 +16,27 @@ export function listReservations(tripId: string | number) {
     LEFT JOIN places acc_p ON ap.place_id = acc_p.id
     WHERE r.trip_id = ?
     ORDER BY r.reservation_time ASC, r.created_at ASC
-  `).all(tripId);
+  `).all(tripId) as any[];
+
+  // Attach per-day positions for multi-day reservations
+  const dayPositions = db.prepare(`
+    SELECT rdp.reservation_id, rdp.day_id, rdp.position
+    FROM reservation_day_positions rdp
+    JOIN reservations r ON rdp.reservation_id = r.id
+    WHERE r.trip_id = ?
+  `).all(tripId) as { reservation_id: number; day_id: number; position: number }[];
+
+  const posMap = new Map<number, Record<number, number>>();
+  for (const dp of dayPositions) {
+    if (!posMap.has(dp.reservation_id)) posMap.set(dp.reservation_id, {});
+    posMap.get(dp.reservation_id)![dp.day_id] = dp.position;
+  }
+
+  for (const r of reservations) {
+    r.day_positions = posMap.get(r.id) || null;
+  }
+
+  return reservations;
 }
 
 export function getReservationWithJoins(id: string | number) {
@@ -117,14 +137,35 @@ export function createReservation(tripId: string | number, data: CreateReservati
   return { reservation, accommodationCreated };
 }
 
-export function updatePositions(tripId: string | number, positions: { id: number; day_plan_position: number }[]) {
-  const stmt = db.prepare('UPDATE reservations SET day_plan_position = ? WHERE id = ? AND trip_id = ?');
-  const updateMany = db.transaction((items: { id: number; day_plan_position: number }[]) => {
-    for (const item of items) {
-      stmt.run(item.day_plan_position, item.id, tripId);
-    }
-  });
-  updateMany(positions);
+export function updatePositions(tripId: string | number, positions: { id: number; day_plan_position: number }[], dayId?: number | string) {
+  if (dayId) {
+    // Per-day positions for multi-day reservations
+    const stmt = db.prepare('INSERT OR REPLACE INTO reservation_day_positions (reservation_id, day_id, position) VALUES (?, ?, ?)');
+    const updateMany = db.transaction((items: { id: number; day_plan_position: number }[]) => {
+      for (const item of items) {
+        stmt.run(item.id, dayId, item.day_plan_position);
+      }
+    });
+    updateMany(positions);
+  } else {
+    // Legacy: update global position
+    const stmt = db.prepare('UPDATE reservations SET day_plan_position = ? WHERE id = ? AND trip_id = ?');
+    const updateMany = db.transaction((items: { id: number; day_plan_position: number }[]) => {
+      for (const item of items) {
+        stmt.run(item.day_plan_position, item.id, tripId);
+      }
+    });
+    updateMany(positions);
+  }
+}
+
+export function getDayPositions(tripId: string | number, dayId: number | string) {
+  return db.prepare(`
+    SELECT rdp.reservation_id, rdp.position
+    FROM reservation_day_positions rdp
+    JOIN reservations r ON rdp.reservation_id = r.id
+    WHERE r.trip_id = ? AND rdp.day_id = ?
+  `).all(tripId, dayId) as { reservation_id: number; position: number }[];
 }
 
 export function getReservation(id: string | number, tripId: string | number) {

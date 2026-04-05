@@ -843,6 +843,27 @@ function runMigrations(db: Database.Database): void {
       const ins = db.prepare('INSERT OR IGNORE INTO packing_bag_members (bag_id, user_id) VALUES (?, ?)');
       for (const b of bagsWithUser) ins.run(b.id, b.user_id);
     },
+    // Migration: Per-day positions for multi-day reservations
+    () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS reservation_day_positions (
+          reservation_id INTEGER NOT NULL REFERENCES reservations(id) ON DELETE CASCADE,
+          day_id INTEGER NOT NULL REFERENCES days(id) ON DELETE CASCADE,
+          position REAL NOT NULL,
+          PRIMARY KEY (reservation_id, day_id)
+        );
+      `);
+      // Migrate existing global positions to per-day entries
+      const reservations = db.prepare('SELECT id, trip_id, reservation_time, reservation_end_time, day_plan_position FROM reservations WHERE day_plan_position IS NOT NULL').all() as any[];
+      const ins = db.prepare('INSERT OR IGNORE INTO reservation_day_positions (reservation_id, day_id, position) VALUES (?, ?, ?)');
+      for (const r of reservations) {
+        const startDate = r.reservation_time?.split('T')[0];
+        const endDate = r.reservation_end_time?.split('T')[0] || startDate;
+        if (!startDate) continue;
+        const matchingDays = db.prepare('SELECT id FROM days WHERE trip_id = ? AND date >= ? AND date <= ?').all(r.trip_id, startDate, endDate) as { id: number }[];
+        for (const d of matchingDays) ins.run(r.id, d.id, r.day_plan_position);
+      }
+    },
   ];
 
   if (currentVersion < migrations.length) {

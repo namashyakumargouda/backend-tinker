@@ -366,9 +366,12 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
       const timed = timedTransports[ti]
       const minutes = timed.minutes
 
-      // Use persisted position if available
-      if (timed.data.day_plan_position != null) {
-        result.push({ type: timed.type, sortKey: timed.data.day_plan_position, data: timed.data })
+      // Use per-day position if available, fallback to global position
+      const dayObj = days.find(d => d.id === dayId)
+      const perDayPos = timed.data.day_positions?.[dayId] ?? timed.data.day_positions?.[String(dayId)]
+      const effectivePos = perDayPos ?? timed.data.day_plan_position
+      if (effectivePos != null) {
+        result.push({ type: timed.type, sortKey: effectivePos, data: timed.data })
         continue
       }
 
@@ -500,10 +503,15 @@ const DayPlanSidebar = React.memo(function DayPlanSidebar({
       if (transportUpdates.length) {
         for (const tu of transportUpdates) {
           const res = reservations.find(r => r.id === tu.id)
-          if (res) res.day_plan_position = tu.day_plan_position
+          if (res) {
+            res.day_plan_position = tu.day_plan_position
+            // Update per-day position for multi-day reservations
+            if (!res.day_positions) res.day_positions = {}
+            res.day_positions[dayId] = tu.day_plan_position
+          }
         }
         setTransportPosVersion(v => v + 1)
-        await reservationsApi.updatePositions(tripId, transportUpdates)
+        await reservationsApi.updatePositions(tripId, transportUpdates, dayId)
       }
       if (prevAssignmentIds.length) {
         const capturedDayId = dayId
