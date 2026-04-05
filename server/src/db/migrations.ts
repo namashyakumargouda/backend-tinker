@@ -677,9 +677,9 @@ function runMigrations(db: Database.Database): void {
             payload_key = excluded.payload_key,
             sort_order = excluded.sort_order
         `);
-        insertField.run('synologyphotos', 'synology_url', 'Server URL', 'url', 'https://synology.example.com', 1, 0, 'synology_url', 'synology_url', 0);
-        insertField.run('synologyphotos', 'synology_username', 'Username', 'text', 'Username', 1, 0, 'synology_username', 'synology_username', 1);
-        insertField.run('synologyphotos', 'synology_password', 'Password', 'password', 'Password', 1, 1, null, 'synology_password', 2);
+        insertField.run('synologyphotos', 'synology_url', 'providerUrl', 'url', 'https://synology.example.com', 1, 0, 'synology_url', 'synology_url', 0);
+        insertField.run('synologyphotos', 'synology_username', 'providerUsername', 'text', 'Username', 1, 0, 'synology_username', 'synology_username', 1);
+        insertField.run('synologyphotos', 'synology_password', 'providerPassword', 'password', 'Password', 1, 1, null, 'synology_password', 2);
       } catch (err: any) {
         if (!err.message?.includes('no such table')) throw err;
       }
