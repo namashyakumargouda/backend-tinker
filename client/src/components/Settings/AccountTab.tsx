@@ -253,8 +253,8 @@ export default function AccountTab(): React.ReactElement {
                     onClick={async () => {
                       setMfaLoading(true)
                       try {
-                        const data = await authApi.mfaSetup() as { qr_data_url: string; secret: string }
-                        setMfaQr(data.qr_data_url)
+                        const data = await authApi.mfaSetup() as { qr_svg: string; secret: string }
+                        setMfaQr(data.qr_svg)
                         setMfaSecret(data.secret)
                         setMfaSetupCode('')
                       } catch (err: unknown) {
@@ -274,7 +274,7 @@ export default function AccountTab(): React.ReactElement {
                 {!user?.mfa_enabled && mfaQr && (
                   <div className="space-y-3">
                     <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{t('settings.mfa.scanQr')}</p>
-                    <img src={mfaQr} alt="" className="rounded-lg border mx-auto block" style={{ maxWidth: 200, borderColor: 'var(--border-primary)' }} />
+                    <div className="rounded-lg border mx-auto block overflow-hidden" style={{ width: 'fit-content', borderColor: 'var(--border-primary)' }} dangerouslySetInnerHTML={{ __html: mfaQr! }} />
                     <div>
                       <label className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>{t('settings.mfa.secretLabel')}</label>
                       <code className="block text-xs p-2 rounded break-all" style={{ background: 'var(--bg-hover)', color: 'var(--text-primary)' }}>{mfaSecret}</code>

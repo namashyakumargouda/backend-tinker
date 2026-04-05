@@ -312,7 +312,7 @@ describe('MFA', () => {
     expect(res.status).toBe(200);
     expect(res.body.secret).toBeDefined();
     expect(res.body.otpauth_url).toContain('otpauth://');
-    expect(res.body.qr_data_url).toMatch(/^data:image/);
+    expect(res.body.qr_svg).toMatch(/^<svg/);
   });
 
   it('AUTH-015 — POST /api/auth/mfa/enable with valid TOTP code enables MFA', async () => {

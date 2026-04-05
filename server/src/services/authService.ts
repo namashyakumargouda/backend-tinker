@@ -816,7 +816,7 @@ export function setupMfa(userId: number, userEmail: string): { error?: string; s
     console.error('[MFA] Setup error:', err);
     return { error: 'MFA setup failed', status: 500 };
   }
-  return { secret, otpauth_url, qrPromise: QRCode.toDataURL(otpauth_url) };
+  return { secret, otpauth_url, qrPromise: QRCode.toString(otpauth_url, { type: 'svg', width: 250 }) };
 }
 
 export function enableMfa(userId: number, code?: string): { error?: string; status?: number; success?: boolean; mfa_enabled?: boolean; backup_codes?: string[] } {
