@@ -366,8 +366,13 @@ export function exportICS(tripId: string | number): { ics: string; filename: str
   const uid = (id: number, type: string) => `trek-${type}-${id}@trek`;
 
   // Format datetime: handles full ISO "2026-03-30T09:00" and time-only "10:00"
+  // iCal requires exactly YYYYMMDDTHHMMSS format
   const fmtDateTime = (d: string, refDate?: string) => {
-    if (d.includes('T')) return d.replace(/[-:]/g, '').split('.')[0];
+    if (d.includes('T')) {
+      const raw = d.replace(/[-:]/g, '').split('.')[0];
+      // Pad to 15 chars (YYYYMMDDTHHMMSS) — add missing seconds
+      return raw.length === 13 ? raw + '00' : raw;
+    }
     // Time-only: combine with reference date
     if (refDate && d.match(/^\d{2}:\d{2}/)) {
       const datePart = refDate.split('T')[0];
