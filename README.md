@@ -96,6 +96,18 @@
 - **Weather**: Open-Meteo API (free, no key required)
 - **Icons**: lucide-react
 
+## Helm (Kubernetes)
+
+A hosted Helm repository is available:
+
+```sh
+helm repo add trek https://mauriceboe.github.io/TREK
+helm repo update
+helm install trek trek/trek
+```
+
+See [`charts/README.md`](charts/README.md) for configuration options.
+
 ## Quick Start
 
 ```bash

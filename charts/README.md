@@ -10,7 +10,19 @@ This is a minimal Helm chart for deploying the TREK app.
 - Optional generic Ingress support
 - Health checks on `/api/health`
 
+## Helm Repository
+
+A hosted Helm repository is available:
+
+```sh
+helm repo add trek https://mauriceboe.github.io/TREK
+helm repo update
+helm install trek trek/trek
+```
+
 ## Usage
+
+Or install directly from the local chart:
 
 ```sh
 helm install trek ./chart \
