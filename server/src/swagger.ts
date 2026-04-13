@@ -1,0 +1,29 @@
+import swaggerJsDoc from 'swagger-jsdoc';
+
+const swaggerOptions: swaggerJsDoc.Options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'TREK API',
+      version: '1.0.0',
+      description: 'API documentation for TREK Headless Backend',
+    },
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
+    },
+    security: [
+      {
+        bearerAuth: [],
+      },
+    ],
+  },
+  apis: ['./src/routes/*.ts'], // Generate docs from route comments
+};
+
+export const swaggerDocs = swaggerJsDoc(swaggerOptions);

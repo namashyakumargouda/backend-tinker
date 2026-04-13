@@ -1,12 +1,4 @@
-# Stage 1: Build React client
-FROM node:22-alpine AS client-builder
-WORKDIR /app/client
-COPY client/package*.json ./
-RUN npm ci
-COPY client/ ./
-RUN npm run build
-
-# Stage 2: Production server
+# Production server for Headless TREK Backend
 FROM node:22-alpine
 
 WORKDIR /app
@@ -14,19 +6,20 @@ WORKDIR /app
 # Timezone support + native deps (better-sqlite3 needs build tools)
 COPY server/package*.json ./
 RUN apk add --no-cache tzdata dumb-init su-exec python3 make g++ && \
-    npm ci --production && \
+    npm ci --production --ignore-scripts && \
+    npm rebuild better-sqlite3 && \
     apk del python3 make g++
 
 COPY server/ ./
-COPY --from=client-builder /app/client/dist ./public
-COPY --from=client-builder /app/client/public/fonts ./public/fonts
 
+# Create necessary directories
 RUN mkdir -p /app/data/logs /app/uploads/files /app/uploads/covers /app/uploads/avatars /app/uploads/photos && \
     mkdir -p /app/server && ln -s /app/uploads /app/server/uploads && ln -s /app/data /app/server/data && \
     chown -R node:node /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV SERVE_FRONTEND=false
 
 EXPOSE 3000
 

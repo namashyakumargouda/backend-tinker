@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import path from 'node:path';
 import fs from 'node:fs';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerDocs } from './swagger';
 
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from './config';
@@ -264,13 +266,13 @@ export function createApp(): express.Application {
   app.use('/api/notifications', notificationRoutes);
   app.use('/api', shareRoutes);
 
-  // MCP endpoint
-  app.post('/mcp', mcpHandler);
-  app.get('/mcp', mcpHandler);
   app.delete('/mcp', mcpHandler);
 
-  // Production static file serving
-  if (process.env.NODE_ENV === 'production') {
+  // Swagger Documentation
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+  // Production static file serving (Optional for Headless/Flutter backend)
+  if (process.env.NODE_ENV === 'production' && process.env.SERVE_FRONTEND === 'true') {
     const publicPath = path.join(__dirname, '../public');
     app.use(express.static(publicPath, {
       setHeaders: (res, filePath) => {
