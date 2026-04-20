@@ -3,9 +3,9 @@ import Database from 'better-sqlite3';
 
 function seedDemoData(db: Database.Database): { adminId: number; demoId: number } {
   const ADMIN_USER = process.env.DEMO_ADMIN_USER || 'admin';
-  const ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@trek.app';
+  const ADMIN_EMAIL = process.env.DEMO_ADMIN_EMAIL || 'admin@travelplanner.app';
   const ADMIN_PASS = process.env.DEMO_ADMIN_PASS || 'admin12345';
-  const DEMO_EMAIL = 'demo@trek.app';
+  const DEMO_EMAIL = 'demo@travelplanner.app';
   const DEMO_PASS = 'demo12345';
 
   // Create admin user if not exists

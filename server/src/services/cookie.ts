@@ -1,6 +1,6 @@
 import { Response } from 'express';
 
-const COOKIE_NAME = 'trek_session';
+const COOKIE_NAME = 'travel-planner_session';
 
 export function cookieOptions(clear = false) {
   const secure = process.env.COOKIE_SECURE !== 'false' && (process.env.NODE_ENV === 'production' || process.env.FORCE_HTTPS === 'true');

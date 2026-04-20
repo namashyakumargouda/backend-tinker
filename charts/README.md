@@ -1,9 +1,9 @@
-# TREK Helm Chart
+# Travel Planner Helm Chart
 
-This is a minimal Helm chart for deploying the TREK app.
+This is a minimal Helm chart for deploying the Travel Planner app.
 
 ## Features
-- Deploys the TREK container
+- Deploys the Travel Planner container
 - Exposes port 3000 via Service
 - Optional persistent storage for `/app/data` and `/app/uploads`
 - Configurable environment variables and secrets
@@ -15,9 +15,9 @@ This is a minimal Helm chart for deploying the TREK app.
 A hosted Helm repository is available:
 
 ```sh
-helm repo add trek https://mauriceboe.github.io/TREK
+helm repo add travel-planner https://mauriceboe.github.io/Travel Planner
 helm repo update
-helm install trek trek/trek
+helm install travel-planner travel-planner/travel-planner
 ```
 
 ## Usage
@@ -25,7 +25,7 @@ helm install trek trek/trek
 Or install directly from the local chart:
 
 ```sh
-helm install trek ./chart \
+helm install travel-planner ./chart \
   --set ingress.enabled=true \
   --set ingress.hosts[0].host=yourdomain.com
 ```

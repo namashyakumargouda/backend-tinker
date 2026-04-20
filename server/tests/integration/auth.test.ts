@@ -43,7 +43,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 
 vi.mock('../../src/db/database', () => dbMock);
 vi.mock('../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel-planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -79,7 +79,7 @@ afterAll(() => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Login', () => {
-  it('AUTH-001 — successful login returns 200, user object, and trek_session cookie', async () => {
+  it('AUTH-001 — successful login returns 200, user object, and travel-planner_session cookie', async () => {
     const { user, password } = createUser(testDb);
     const res = await request(app).post('/api/auth/login').send({ email: user.email, password });
     expect(res.status).toBe(200);
@@ -89,7 +89,7 @@ describe('Login', () => {
     const cookies: string[] = Array.isArray(res.headers['set-cookie'])
       ? res.headers['set-cookie']
       : [res.headers['set-cookie']];
-    expect(cookies.some((c: string) => c.includes('trek_session'))).toBe(true);
+    expect(cookies.some((c: string) => c.includes('travel-planner_session'))).toBe(true);
   });
 
   it('AUTH-002 — wrong password returns 401 with generic message', async () => {
@@ -112,7 +112,7 @@ describe('Login', () => {
     const cookies: string[] = Array.isArray(res.headers['set-cookie'])
       ? res.headers['set-cookie']
       : (res.headers['set-cookie'] ? [res.headers['set-cookie']] : []);
-    const sessionCookie = cookies.find((c: string) => c.includes('trek_session'));
+    const sessionCookie = cookies.find((c: string) => c.includes('travel-planner_session'));
     expect(sessionCookie).toBeDefined();
     expect(sessionCookie).toMatch(/expires=Thu, 01 Jan 1970|Max-Age=0/i);
   });
@@ -134,7 +134,7 @@ describe('Registration', () => {
     const cookies: string[] = Array.isArray(res.headers['set-cookie'])
       ? res.headers['set-cookie']
       : [res.headers['set-cookie']];
-    expect(cookies.some((c: string) => c.includes('trek_session'))).toBe(true);
+    expect(cookies.some((c: string) => c.includes('travel-planner_session'))).toBe(true);
   });
 
   it('AUTH-006 — registration with weak password is rejected', async () => {
@@ -286,13 +286,13 @@ describe('Demo login', () => {
 
   it('AUTH-022 — POST /api/auth/demo-login with DEMO_MODE and demo user returns 200 + cookie', async () => {
     testDb.prepare(
-      "INSERT INTO users (username, email, password_hash, role) VALUES ('demo', 'demo@trek.app', 'x', 'user')"
+      "INSERT INTO users (username, email, password_hash, role) VALUES ('demo', 'demo@travelplanner.app', 'x', 'user')"
     ).run();
     process.env.DEMO_MODE = 'true';
     try {
       const res = await request(app).post('/api/auth/demo-login');
       expect(res.status).toBe(200);
-      expect(res.body.user.email).toBe('demo@trek.app');
+      expect(res.body.user.email).toBe('demo@travelplanner.app');
     } finally {
       delete process.env.DEMO_MODE;
     }
@@ -358,7 +358,7 @@ describe('MFA', () => {
     const cookies: string[] = Array.isArray(verifyRes.headers['set-cookie'])
       ? verifyRes.headers['set-cookie']
       : [verifyRes.headers['set-cookie']];
-    expect(cookies.some((c: string) => c.includes('trek_session'))).toBe(true);
+    expect(cookies.some((c: string) => c.includes('travel-planner_session'))).toBe(true);
   });
 
   it('AUTH-017 — verify-login with invalid TOTP code returns 401', async () => {

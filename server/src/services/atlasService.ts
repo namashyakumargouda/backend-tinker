@@ -9,19 +9,27 @@ let admin1GeoLoading: Promise<any> | null = null;
 async function loadAdmin1Geo(): Promise<any> {
   if (admin1GeoCache) return admin1GeoCache;
   if (admin1GeoLoading) return admin1GeoLoading;
+
   admin1GeoLoading = fetch(
     'https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_1_states_provinces.geojson',
-    { headers: { 'User-Agent': 'TREK Travel Planner' } }
-  ).then(r => r.json()).then(geo => {
+    { headers: { 'User-Agent': 'Travel Planner' } }
+  ).then(async r => {
+    if (!r.ok) {
+      throw new Error(`HTTP error! status: ${r.status}`);
+    }
+    return r.json();
+  }).then((geo: any) => {
     admin1GeoCache = geo;
     admin1GeoLoading = null;
-    console.log(`[Atlas] Cached admin-1 GeoJSON: ${geo.features?.length || 0} features`);
+    const count = geo?.features?.length || 0;
+    console.log(`[Atlas] Cached admin-1 GeoJSON: ${count} features`);
     return geo;
   }).catch(err => {
     admin1GeoLoading = null;
     console.error('[Atlas] Failed to load admin-1 GeoJSON:', err);
     return null;
   });
+
   return admin1GeoLoading;
 }
 
@@ -69,53 +77,53 @@ setInterval(() => {
 // ── Bounding-box lookup tables ──────────────────────────────────────────────
 
 export const COUNTRY_BOXES: Record<string, [number, number, number, number]> = {
-  AF:[60.5,29.4,75,38.5],AL:[19,39.6,21.1,42.7],DZ:[-8.7,19,12,37.1],AD:[1.4,42.4,1.8,42.7],AO:[11.7,-18.1,24.1,-4.4],
-  AR:[-73.6,-55.1,-53.6,-21.8],AM:[43.4,38.8,46.6,41.3],AU:[112.9,-43.6,153.6,-10.7],AT:[9.5,46.4,17.2,49],AZ:[44.8,38.4,50.4,41.9],
-  BD:[88.0,20.7,92.7,26.6],BR:[-73.9,-33.8,-34.8,5.3],BE:[2.5,49.5,6.4,51.5],BG:[22.4,41.2,28.6,44.2],CA:[-141,41.7,-52.6,83.1],CL:[-75.6,-55.9,-66.9,-17.5],
-  CN:[73.6,18.2,134.8,53.6],CO:[-79.1,-4.3,-66.9,12.5],HR:[13.5,42.4,19.5,46.6],CZ:[12.1,48.6,18.9,51.1],DK:[8,54.6,15.2,57.8],
-  EG:[24.7,22,37,31.7],EE:[21.8,57.5,28.2,59.7],FI:[20.6,59.8,31.6,70.1],FR:[-5.1,41.3,9.6,51.1],DE:[5.9,47.3,15.1,55.1],
-  GR:[19.4,34.8,29.7,41.8],HU:[16,45.7,22.9,48.6],IS:[-24.5,63.4,-13.5,66.6],IN:[68.2,6.7,97.4,35.5],ID:[95.3,-11,141,5.9],
-  IR:[44.1,25.1,63.3,39.8],IQ:[38.8,29.1,48.6,37.4],IE:[-10.5,51.4,-6,55.4],IL:[34.3,29.5,35.9,33.3],IT:[6.6,36.6,18.5,47.1],
-  JP:[129.4,31.1,145.5,45.5],KE:[33.9,-4.7,41.9,5.5],KR:[126,33.2,129.6,38.6],LV:[21,55.7,28.2,58.1],LT:[21,53.9,26.8,56.5],
-  LU:[5.7,49.4,6.5,50.2],MY:[99.6,0.9,119.3,7.4],MX:[-118.4,14.5,-86.7,32.7],MA:[-13.2,27.7,-1,35.9],NL:[3.4,50.8,7.2,53.5],
-  NZ:[166.4,-47.3,178.5,-34.4],NO:[4.6,58,31.1,71.2],PK:[60.9,23.7,77.1,37.1],PE:[-81.3,-18.4,-68.7,-0.1],PH:[117,5,126.6,18.5],
-  PL:[14.1,49,24.1,54.9],PT:[-9.5,36.8,-6.2,42.2],RO:[20.2,43.6,29.7,48.3],RU:[19.6,41.2,180,81.9],SA:[34.6,16.4,55.7,32.2],
-  RS:[18.8,42.2,23,46.2],SK:[16.8,47.7,22.6,49.6],SI:[13.4,45.4,16.6,46.9],ZA:[16.5,-34.8,32.9,-22.1],ES:[-9.4,36,-0.2,43.8],
-  SE:[11.1,55.3,24.2,69.1],CH:[6,45.8,10.5,47.8],TH:[97.3,5.6,105.6,20.5],TR:[26,36,44.8,42.1],UA:[22.1,44.4,40.2,52.4],
-  AE:[51.6,22.6,56.4,26.1],GB:[-8,49.9,2,60.9],US:[-125,24.5,-66.9,49.4],VN:[102.1,8.6,109.5,23.4],
+  AF: [60.5, 29.4, 75, 38.5], AL: [19, 39.6, 21.1, 42.7], DZ: [-8.7, 19, 12, 37.1], AD: [1.4, 42.4, 1.8, 42.7], AO: [11.7, -18.1, 24.1, -4.4],
+  AR: [-73.6, -55.1, -53.6, -21.8], AM: [43.4, 38.8, 46.6, 41.3], AU: [112.9, -43.6, 153.6, -10.7], AT: [9.5, 46.4, 17.2, 49], AZ: [44.8, 38.4, 50.4, 41.9],
+  BD: [88.0, 20.7, 92.7, 26.6], BR: [-73.9, -33.8, -34.8, 5.3], BE: [2.5, 49.5, 6.4, 51.5], BG: [22.4, 41.2, 28.6, 44.2], CA: [-141, 41.7, -52.6, 83.1], CL: [-75.6, -55.9, -66.9, -17.5],
+  CN: [73.6, 18.2, 134.8, 53.6], CO: [-79.1, -4.3, -66.9, 12.5], HR: [13.5, 42.4, 19.5, 46.6], CZ: [12.1, 48.6, 18.9, 51.1], DK: [8, 54.6, 15.2, 57.8],
+  EG: [24.7, 22, 37, 31.7], EE: [21.8, 57.5, 28.2, 59.7], FI: [20.6, 59.8, 31.6, 70.1], FR: [-5.1, 41.3, 9.6, 51.1], DE: [5.9, 47.3, 15.1, 55.1],
+  GR: [19.4, 34.8, 29.7, 41.8], HU: [16, 45.7, 22.9, 48.6], IS: [-24.5, 63.4, -13.5, 66.6], IN: [68.2, 6.7, 97.4, 35.5], ID: [95.3, -11, 141, 5.9],
+  IR: [44.1, 25.1, 63.3, 39.8], IQ: [38.8, 29.1, 48.6, 37.4], IE: [-10.5, 51.4, -6, 55.4], IL: [34.3, 29.5, 35.9, 33.3], IT: [6.6, 36.6, 18.5, 47.1],
+  JP: [129.4, 31.1, 145.5, 45.5], KE: [33.9, -4.7, 41.9, 5.5], KR: [126, 33.2, 129.6, 38.6], LV: [21, 55.7, 28.2, 58.1], LT: [21, 53.9, 26.8, 56.5],
+  LU: [5.7, 49.4, 6.5, 50.2], MY: [99.6, 0.9, 119.3, 7.4], MX: [-118.4, 14.5, -86.7, 32.7], MA: [-13.2, 27.7, -1, 35.9], NL: [3.4, 50.8, 7.2, 53.5],
+  NZ: [166.4, -47.3, 178.5, -34.4], NO: [4.6, 58, 31.1, 71.2], PK: [60.9, 23.7, 77.1, 37.1], PE: [-81.3, -18.4, -68.7, -0.1], PH: [117, 5, 126.6, 18.5],
+  PL: [14.1, 49, 24.1, 54.9], PT: [-9.5, 36.8, -6.2, 42.2], RO: [20.2, 43.6, 29.7, 48.3], RU: [19.6, 41.2, 180, 81.9], SA: [34.6, 16.4, 55.7, 32.2],
+  RS: [18.8, 42.2, 23, 46.2], SK: [16.8, 47.7, 22.6, 49.6], SI: [13.4, 45.4, 16.6, 46.9], ZA: [16.5, -34.8, 32.9, -22.1], ES: [-9.4, 36, -0.2, 43.8],
+  SE: [11.1, 55.3, 24.2, 69.1], CH: [6, 45.8, 10.5, 47.8], TH: [97.3, 5.6, 105.6, 20.5], TR: [26, 36, 44.8, 42.1], UA: [22.1, 44.4, 40.2, 52.4],
+  AE: [51.6, 22.6, 56.4, 26.1], GB: [-8, 49.9, 2, 60.9], US: [-125, 24.5, -66.9, 49.4], VN: [102.1, 8.6, 109.5, 23.4],
 };
 
 export const NAME_TO_CODE: Record<string, string> = {
-  'germany':'DE','deutschland':'DE','france':'FR','frankreich':'FR','spain':'ES','spanien':'ES',
-  'italy':'IT','italien':'IT','united kingdom':'GB','uk':'GB','england':'GB','united states':'US',
-  'usa':'US','netherlands':'NL','niederlande':'NL','austria':'AT','osterreich':'AT','switzerland':'CH',
-  'schweiz':'CH','portugal':'PT','greece':'GR','griechenland':'GR','turkey':'TR','turkei':'TR',
-  'croatia':'HR','kroatien':'HR','czech republic':'CZ','tschechien':'CZ','czechia':'CZ',
-  'poland':'PL','polen':'PL','sweden':'SE','schweden':'SE','norway':'NO','norwegen':'NO',
-  'denmark':'DK','danemark':'DK','finland':'FI','finnland':'FI','belgium':'BE','belgien':'BE',
-  'ireland':'IE','irland':'IE','hungary':'HU','ungarn':'HU','romania':'RO','rumanien':'RO',
-  'bulgaria':'BG','bulgarien':'BG','japan':'JP','china':'CN','australia':'AU','australien':'AU',
-  'canada':'CA','kanada':'CA','mexico':'MX','mexiko':'MX','brazil':'BR','brasilien':'BR',
-  'argentina':'AR','argentinien':'AR','thailand':'TH','indonesia':'ID','indonesien':'ID',
-  'india':'IN','indien':'IN','egypt':'EG','agypten':'EG','morocco':'MA','marokko':'MA',
-  'south africa':'ZA','sudafrika':'ZA','new zealand':'NZ','neuseeland':'NZ','iceland':'IS','island':'IS',
-  'luxembourg':'LU','luxemburg':'LU','slovenia':'SI','slowenien':'SI','slovakia':'SK','slowakei':'SK',
-  'estonia':'EE','estland':'EE','latvia':'LV','lettland':'LV','lithuania':'LT','litauen':'LT',
-  'serbia':'RS','serbien':'RS','israel':'IL','russia':'RU','russland':'RU','ukraine':'UA',
-  'vietnam':'VN','south korea':'KR','sudkorea':'KR','philippines':'PH','philippinen':'PH',
-  'malaysia':'MY','colombia':'CO','kolumbien':'CO','peru':'PE','chile':'CL','iran':'IR',
-  'iraq':'IQ','irak':'IQ','pakistan':'PK','kenya':'KE','kenia':'KE','nigeria':'NG',
-  'saudi arabia':'SA','saudi-arabien':'SA','albania':'AL','albanien':'AL',
+  'germany': 'DE', 'deutschland': 'DE', 'france': 'FR', 'frankreich': 'FR', 'spain': 'ES', 'spanien': 'ES',
+  'italy': 'IT', 'italien': 'IT', 'united kingdom': 'GB', 'uk': 'GB', 'england': 'GB', 'united states': 'US',
+  'usa': 'US', 'netherlands': 'NL', 'niederlande': 'NL', 'austria': 'AT', 'osterreich': 'AT', 'switzerland': 'CH',
+  'schweiz': 'CH', 'portugal': 'PT', 'greece': 'GR', 'griechenland': 'GR', 'turkey': 'TR', 'turkei': 'TR',
+  'croatia': 'HR', 'kroatien': 'HR', 'czech republic': 'CZ', 'tschechien': 'CZ', 'czechia': 'CZ',
+  'poland': 'PL', 'polen': 'PL', 'sweden': 'SE', 'schweden': 'SE', 'norway': 'NO', 'norwegen': 'NO',
+  'denmark': 'DK', 'danemark': 'DK', 'finland': 'FI', 'finnland': 'FI', 'belgium': 'BE', 'belgien': 'BE',
+  'ireland': 'IE', 'irland': 'IE', 'hungary': 'HU', 'ungarn': 'HU', 'romania': 'RO', 'rumanien': 'RO',
+  'bulgaria': 'BG', 'bulgarien': 'BG', 'japan': 'JP', 'china': 'CN', 'australia': 'AU', 'australien': 'AU',
+  'canada': 'CA', 'kanada': 'CA', 'mexico': 'MX', 'mexiko': 'MX', 'brazil': 'BR', 'brasilien': 'BR',
+  'argentina': 'AR', 'argentinien': 'AR', 'thailand': 'TH', 'indonesia': 'ID', 'indonesien': 'ID',
+  'india': 'IN', 'indien': 'IN', 'egypt': 'EG', 'agypten': 'EG', 'morocco': 'MA', 'marokko': 'MA',
+  'south africa': 'ZA', 'sudafrika': 'ZA', 'new zealand': 'NZ', 'neuseeland': 'NZ', 'iceland': 'IS', 'island': 'IS',
+  'luxembourg': 'LU', 'luxemburg': 'LU', 'slovenia': 'SI', 'slowenien': 'SI', 'slovakia': 'SK', 'slowakei': 'SK',
+  'estonia': 'EE', 'estland': 'EE', 'latvia': 'LV', 'lettland': 'LV', 'lithuania': 'LT', 'litauen': 'LT',
+  'serbia': 'RS', 'serbien': 'RS', 'israel': 'IL', 'russia': 'RU', 'russland': 'RU', 'ukraine': 'UA',
+  'vietnam': 'VN', 'south korea': 'KR', 'sudkorea': 'KR', 'philippines': 'PH', 'philippinen': 'PH',
+  'malaysia': 'MY', 'colombia': 'CO', 'kolumbien': 'CO', 'peru': 'PE', 'chile': 'CL', 'iran': 'IR',
+  'iraq': 'IQ', 'irak': 'IQ', 'pakistan': 'PK', 'kenya': 'KE', 'kenia': 'KE', 'nigeria': 'NG',
+  'saudi arabia': 'SA', 'saudi-arabien': 'SA', 'albania': 'AL', 'albanien': 'AL',
 };
 
 export const CONTINENT_MAP: Record<string, string> = {
-  AF:'Africa',AL:'Europe',DZ:'Africa',AD:'Europe',AO:'Africa',AR:'South America',AM:'Asia',AU:'Oceania',AT:'Europe',AZ:'Asia',
-  BR:'South America',BE:'Europe',BG:'Europe',CA:'North America',CL:'South America',CN:'Asia',CO:'South America',HR:'Europe',CZ:'Europe',DK:'Europe',
-  EG:'Africa',EE:'Europe',FI:'Europe',FR:'Europe',DE:'Europe',GR:'Europe',HU:'Europe',IS:'Europe',IN:'Asia',ID:'Asia',
-  IR:'Asia',IQ:'Asia',IE:'Europe',IL:'Asia',IT:'Europe',JP:'Asia',KE:'Africa',KR:'Asia',LV:'Europe',LT:'Europe',
-  LU:'Europe',MY:'Asia',MX:'North America',MA:'Africa',NL:'Europe',NZ:'Oceania',NO:'Europe',PK:'Asia',PE:'South America',PH:'Asia',
-  PL:'Europe',PT:'Europe',RO:'Europe',RU:'Europe',SA:'Asia',RS:'Europe',SK:'Europe',SI:'Europe',ZA:'Africa',ES:'Europe',
-  SE:'Europe',CH:'Europe',TH:'Asia',TR:'Europe',UA:'Europe',AE:'Asia',GB:'Europe',US:'North America',VN:'Asia',NG:'Africa',
+  AF: 'Africa', AL: 'Europe', DZ: 'Africa', AD: 'Europe', AO: 'Africa', AR: 'South America', AM: 'Asia', AU: 'Oceania', AT: 'Europe', AZ: 'Asia',
+  BR: 'South America', BE: 'Europe', BG: 'Europe', CA: 'North America', CL: 'South America', CN: 'Asia', CO: 'South America', HR: 'Europe', CZ: 'Europe', DK: 'Europe',
+  EG: 'Africa', EE: 'Europe', FI: 'Europe', FR: 'Europe', DE: 'Europe', GR: 'Europe', HU: 'Europe', IS: 'Europe', IN: 'Asia', ID: 'Asia',
+  IR: 'Asia', IQ: 'Asia', IE: 'Europe', IL: 'Asia', IT: 'Europe', JP: 'Asia', KE: 'Africa', KR: 'Asia', LV: 'Europe', LT: 'Europe',
+  LU: 'Europe', MY: 'Asia', MX: 'North America', MA: 'Africa', NL: 'Europe', NZ: 'Oceania', NO: 'Europe', PK: 'Asia', PE: 'South America', PH: 'Asia',
+  PL: 'Europe', PT: 'Europe', RO: 'Europe', RU: 'Europe', SA: 'Asia', RS: 'Europe', SK: 'Europe', SI: 'Europe', ZA: 'Africa', ES: 'Europe',
+  SE: 'Europe', CH: 'Europe', TH: 'Asia', TR: 'Europe', UA: 'Europe', AE: 'Asia', GB: 'Europe', US: 'North America', VN: 'Asia', NG: 'Africa',
 };
 
 // ── Geocoding helpers ───────────────────────────────────────────────────────
@@ -125,7 +133,7 @@ export async function reverseGeocodeCountry(lat: number, lng: number): Promise<s
   if (geocodeCache.has(key)) return geocodeCache.get(key)!;
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=3&accept-language=en`, {
-      headers: { 'User-Agent': 'TREK Travel Planner' },
+      headers: { 'User-Agent': 'Travel Planner' },
     });
     if (!res.ok) return null;
     const data = await res.json() as { address?: { country_code?: string } };
@@ -410,7 +418,7 @@ async function reverseGeocodeRegion(lat: number, lng: number): Promise<RegionInf
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=8&accept-language=en`,
-      { headers: { 'User-Agent': 'TREK Travel Planner' } }
+      { headers: { 'User-Agent': 'Travel Planner' } }
     );
     if (!res.ok) return null;
     const data = await res.json() as { address?: Record<string, string> };

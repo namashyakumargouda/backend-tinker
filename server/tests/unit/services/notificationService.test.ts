@@ -22,7 +22,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 
 vi.mock('../../../src/db/database', () => dbMock);
 vi.mock('../../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel-planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -65,7 +65,7 @@ import { send } from '../../../src/services/notificationService';
 function setSmtp(): void {
   setAppSetting(testDb, 'smtp_host', 'mail.test.com');
   setAppSetting(testDb, 'smtp_port', '587');
-  setAppSetting(testDb, 'smtp_from', 'trek@test.com');
+  setAppSetting(testDb, 'smtp_from', 'travelplanner@test.com');
 }
 
 function setUserWebhookUrl(userId: number, url = 'https://hooks.test.com/webhook'): void {

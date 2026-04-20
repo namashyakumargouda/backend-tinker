@@ -40,7 +40,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // List all accessible trips
   server.registerResource(
     'trips',
-    'trek://trips',
+    'travel-planner://trips',
     { description: 'All trips the user owns or is a member of' },
     async (uri) => {
       const trips = listTrips(userId, 0);
@@ -51,7 +51,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Single trip detail
   server.registerResource(
     'trip',
-    new ResourceTemplate('trek://trips/{tripId}', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}', { list: undefined }),
     { description: 'A single trip with metadata and member count' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -64,7 +64,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Days with assigned places
   server.registerResource(
     'trip-days',
-    new ResourceTemplate('trek://trips/{tripId}/days', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/days', { list: undefined }),
     { description: 'Days of a trip with their assigned places' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -78,7 +78,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Places in a trip
   server.registerResource(
     'trip-places',
-    new ResourceTemplate('trek://trips/{tripId}/places', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/places', { list: undefined }),
     { description: 'All places/POIs saved in a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -91,7 +91,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Budget items
   server.registerResource(
     'trip-budget',
-    new ResourceTemplate('trek://trips/{tripId}/budget', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/budget', { list: undefined }),
     { description: 'Budget and expense items for a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -104,7 +104,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Packing checklist
   server.registerResource(
     'trip-packing',
-    new ResourceTemplate('trek://trips/{tripId}/packing', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/packing', { list: undefined }),
     { description: 'Packing checklist for a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -117,7 +117,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Reservations (flights, hotels, restaurants)
   server.registerResource(
     'trip-reservations',
-    new ResourceTemplate('trek://trips/{tripId}/reservations', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/reservations', { list: undefined }),
     { description: 'Reservations (flights, hotels, restaurants) for a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -130,7 +130,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Day notes
   server.registerResource(
     'day-notes',
-    new ResourceTemplate('trek://trips/{tripId}/days/{dayId}/notes', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/days/{dayId}/notes', { list: undefined }),
     { description: 'Notes for a specific day in a trip' },
     async (uri, { tripId, dayId }) => {
       const tId = parseId(tripId);
@@ -144,7 +144,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Accommodations (hotels, rentals) per trip
   server.registerResource(
     'trip-accommodations',
-    new ResourceTemplate('trek://trips/{tripId}/accommodations', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/accommodations', { list: undefined }),
     { description: 'Accommodations (hotels, rentals) for a trip with check-in/out details' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -157,7 +157,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Trip members (owner + collaborators)
   server.registerResource(
     'trip-members',
-    new ResourceTemplate('trek://trips/{tripId}/members', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/members', { list: undefined }),
     { description: 'Owner and collaborators of a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -172,7 +172,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // Collab notes for a trip
   server.registerResource(
     'trip-collab-notes',
-    new ResourceTemplate('trek://trips/{tripId}/collab-notes', { list: undefined }),
+    new ResourceTemplate('travel-planner://trips/{tripId}/collab-notes', { list: undefined }),
     { description: 'Shared collaborative notes for a trip' },
     async (uri, { tripId }) => {
       const id = parseId(tripId);
@@ -185,7 +185,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // All place categories (global, no trip filter)
   server.registerResource(
     'categories',
-    'trek://categories',
+    'travel-planner://categories',
     { description: 'All available place categories (id, name, color, icon) for use when creating places' },
     async (uri) => {
       const categories = listCategories();
@@ -196,7 +196,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // User's bucket list
   server.registerResource(
     'bucket-list',
-    'trek://bucket-list',
+    'travel-planner://bucket-list',
     { description: 'Your personal travel bucket list' },
     async (uri) => {
       const items = listBucketList(userId);
@@ -207,7 +207,7 @@ export function registerResources(server: McpServer, userId: number): void {
   // User's visited countries
   server.registerResource(
     'visited-countries',
-    'trek://visited-countries',
+    'travel-planner://visited-countries',
     { description: 'Countries you have marked as visited in Atlas' },
     async (uri) => {
       const countries = listVisitedCountries(userId);

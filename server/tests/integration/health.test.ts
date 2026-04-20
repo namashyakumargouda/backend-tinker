@@ -46,7 +46,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 vi.mock('../../src/db/database', () => dbMock);
 
 vi.mock('../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel-planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -107,7 +107,7 @@ describe('Basic auth', () => {
     const cookies: string[] = Array.isArray(res.headers['set-cookie'])
       ? res.headers['set-cookie']
       : [res.headers['set-cookie']];
-    expect(cookies.some((c: string) => c.includes('trek_session'))).toBe(true);
+    expect(cookies.some((c: string) => c.includes('travel-planner_session'))).toBe(true);
   });
 
   it('AUTH-014 — authenticated GET /api/auth/me returns user object', async () => {

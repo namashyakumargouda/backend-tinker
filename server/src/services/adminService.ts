@@ -286,8 +286,8 @@ export function saveDemoBaseline(): { error?: string; status?: number; message?:
 export async function getGithubReleases(perPage: string = '10', page: string = '1') {
   try {
     const resp = await fetch(
-      `https://api.github.com/repos/mauriceboe/TREK/releases?per_page=${perPage}&page=${page}`,
-      { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TREK-Server' } }
+      `https://api.github.com/repos/mauriceboe/travel-planner/releases?per_page=${perPage}&page=${page}`,
+      { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Travel-Planner-Server' } }
     );
     if (!resp.ok) return [];
     const data = await resp.json();
@@ -301,8 +301,8 @@ export async function checkVersion() {
   const { version: currentVersion } = require('../../package.json');
   try {
     const resp = await fetch(
-      'https://api.github.com/repos/mauriceboe/TREK/releases/latest',
-      { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'TREK-Server' } }
+      'https://api.github.com/repos/mauriceboe/travel-planner/releases/latest',
+      { headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': 'Travel-Planner-Server' } }
     );
     if (!resp.ok) return { current: currentVersion, latest: currentVersion, update_available: false };
     const data = await resp.json() as { tag_name?: string; html_url?: string };

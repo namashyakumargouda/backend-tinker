@@ -4,9 +4,9 @@ const swaggerOptions: swaggerJsDoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'TREK API',
+      title: 'Travel Planner API',
       version: '1.0.0',
-      description: 'API documentation for TREK Headless Backend',
+      description: 'API documentation for the Travel Planner Headless Backend Service',
     },
     components: {
       securitySchemes: {

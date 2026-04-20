@@ -72,8 +72,8 @@ function verifyToken(authHeader: string | undefined): User | null {
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return null;
 
-  // Long-lived MCP API token (trek_...)
-  if (token.startsWith('trek_')) {
+  // Long-lived MCP API token (travel-planner_...)
+  if (token.startsWith('travel-planner_')) {
     return verifyMcpToken(token);
   }
 
@@ -128,7 +128,7 @@ export async function mcpHandler(req: Request, res: Response): Promise<void> {
   }
 
   // Create a new per-user MCP server and session
-  const server = new McpServer({ name: 'trek', version: '1.0.0' });
+  const server = new McpServer({ name: 'travel-planner', version: '1.0.0' });
   registerResources(server, user.id);
   registerTools(server, user.id);
 

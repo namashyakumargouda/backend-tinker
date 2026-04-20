@@ -2,9 +2,9 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "trek.fullname" . }}
+  name: {{ include "travel-planner.fullname" . }}
   labels:
-    app: {{ include "trek.name" . }}
+    app: {{ include "travel-planner.name" . }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -27,7 +27,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "trek.fullname" $ }}
+                name: {{ include "travel-planner.fullname" $ }}
                 port:
                   number: {{ $.Values.service.port }}
           {{- end }}

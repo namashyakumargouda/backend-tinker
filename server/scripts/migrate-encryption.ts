@@ -1,7 +1,7 @@
 /**
  * Encryption key migration script.
  *
- * Re-encrypts all at-rest secrets in the TREK database from one ENCRYPTION_KEY
+ * Re-encrypts all at-rest secrets in the Travel Planner database from one ENCRYPTION_KEY
  * to another without requiring the application to be running.
  *
  * Usage (host):
@@ -9,7 +9,7 @@
  *   node --import tsx scripts/migrate-encryption.ts
  *
  * Usage (Docker):
- *   docker exec -it trek node --import tsx scripts/migrate-encryption.ts
+ *   docker exec -it travel-planner node --import tsx scripts/migrate-encryption.ts
  *
  * The script will prompt for the old and new keys interactively so they never
  * appear in shell history, process arguments, or log output.
@@ -138,7 +138,7 @@ interface MigrationResult {
 }
 
 async function main() {
-  console.log('=== TREK Encryption Key Migration ===\n');
+  console.log('=== Travel Planner Encryption Key Migration ===\n');
   console.log('This script re-encrypts all stored secrets under a new ENCRYPTION_KEY.');
   console.log('A backup of the database will be created before any changes are made.\n');
 

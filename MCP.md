@@ -1,10 +1,10 @@
 # MCP Integration
 
-TREK includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that lets AI
+Travel Planner includes a built-in [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that lets AI
 assistants — such as Claude Desktop, Cursor, or any MCP-compatible client — read and modify your trip data through a
 structured API.
 
-> **Note:** MCP is an addon that must be enabled by your TREK administrator before it becomes available.
+> **Note:** MCP is an addon that must be enabled by your Travel Planner administrator before it becomes available.
 
 ## Table of Contents
 
@@ -41,13 +41,13 @@ The Settings page shows a ready-to-copy client configuration snippet. For **Clau
 ```json
 {
   "mcpServers": {
-    "trek": {
+    "travel-planner": {
       "command": "npx",
       "args": [
         "mcp-remote",
-        "https://your-trek-instance.com/mcp",
+        "https://your-travel-planner-instance.com/mcp",
         "--header",
-        "Authorization: Bearer trek_your_token_here"
+        "Authorization: Bearer travel-planner_your_token_here"
       ]
     }
   }
@@ -66,7 +66,7 @@ The Settings page shows a ready-to-copy client configuration snippet. For **Clau
 | **Per-user scoping**                    | Each MCP session is scoped to the authenticated user. You can only access trips you own or are a member of.                                      |
 | **No image uploads**                    | Cover images cannot be set through MCP. Use the web UI to upload trip covers.                                                                    |
 | **Reservations are created as pending** | When the AI creates a reservation, it starts with `pending` status. You must confirm it manually or ask the AI to set the status to `confirmed`. |
-| **Demo mode restrictions**              | If TREK is running in demo mode, all write operations through MCP are blocked.                                                                   |
+| **Demo mode restrictions**              | If Travel Planner is running in demo mode, all write operations through MCP are blocked.                                                                   |
 | **Rate limiting**                       | 60 requests per minute per user. Exceeding this returns a `429` error.                                                                           |
 | **Session limits**                      | Maximum 5 concurrent MCP sessions per user. Sessions expire after 1 hour of inactivity.                                                          |
 | **Token limits**                        | Maximum 10 API tokens per user.                                                                                                                  |
@@ -77,31 +77,31 @@ The Settings page shows a ready-to-copy client configuration snippet. For **Clau
 
 ## Resources (read-only)
 
-Resources provide read-only access to your TREK data. MCP clients can read these to understand the current state before
+Resources provide read-only access to your Travel Planner data. MCP clients can read these to understand the current state before
 making changes.
 
 | Resource          | URI                                        | Description                                               |
 |-------------------|--------------------------------------------|-----------------------------------------------------------|
-| Trips             | `trek://trips`                             | All trips you own or are a member of                      |
-| Trip Detail       | `trek://trips/{tripId}`                    | Single trip with metadata and member count                |
-| Days              | `trek://trips/{tripId}/days`               | Days of a trip with their assigned places                 |
-| Places            | `trek://trips/{tripId}/places`             | All places/POIs saved in a trip                           |
-| Budget            | `trek://trips/{tripId}/budget`             | Budget and expense items                                  |
-| Packing           | `trek://trips/{tripId}/packing`            | Packing checklist                                         |
-| Reservations      | `trek://trips/{tripId}/reservations`       | Flights, hotels, restaurants, etc.                        |
-| Day Notes         | `trek://trips/{tripId}/days/{dayId}/notes` | Notes for a specific day                                  |
-| Accommodations    | `trek://trips/{tripId}/accommodations`     | Hotels/rentals with check-in/out details                  |
-| Members           | `trek://trips/{tripId}/members`            | Owner and collaborators                                   |
-| Collab Notes      | `trek://trips/{tripId}/collab-notes`       | Shared collaborative notes                                |
-| Categories        | `trek://categories`                        | Available place categories (for use when creating places) |
-| Bucket List       | `trek://bucket-list`                       | Your personal travel bucket list                          |
-| Visited Countries | `trek://visited-countries`                 | Countries marked as visited in Atlas                      |
+| Trips             | `travel-planner://trips`                             | All trips you own or are a member of                      |
+| Trip Detail       | `travel-planner://trips/{tripId}`                    | Single trip with metadata and member count                |
+| Days              | `travel-planner://trips/{tripId}/days`               | Days of a trip with their assigned places                 |
+| Places            | `travel-planner://trips/{tripId}/places`             | All places/POIs saved in a trip                           |
+| Budget            | `travel-planner://trips/{tripId}/budget`             | Budget and expense items                                  |
+| Packing           | `travel-planner://trips/{tripId}/packing`            | Packing checklist                                         |
+| Reservations      | `travel-planner://trips/{tripId}/reservations`       | Flights, hotels, restaurants, etc.                        |
+| Day Notes         | `travel-planner://trips/{tripId}/days/{dayId}/notes` | Notes for a specific day                                  |
+| Accommodations    | `travel-planner://trips/{tripId}/accommodations`     | Hotels/rentals with check-in/out details                  |
+| Members           | `travel-planner://trips/{tripId}/members`            | Owner and collaborators                                   |
+| Collab Notes      | `travel-planner://trips/{tripId}/collab-notes`       | Shared collaborative notes                                |
+| Categories        | `travel-planner://categories`                        | Available place categories (for use when creating places) |
+| Bucket List       | `travel-planner://bucket-list`                       | Your personal travel bucket list                          |
+| Visited Countries | `travel-planner://visited-countries`                 | Countries marked as visited in Atlas                      |
 
 ---
 
 ## Tools (read-write)
 
-TREK exposes **34 tools** organized by feature area. Use `get_trip_summary` as a starting point — it returns everything
+Travel Planner exposes **34 tools** organized by feature area. Use `get_trip_summary` as a starting point — it returns everything
 about a trip in a single call.
 
 ### Trip Summary
@@ -206,13 +206,13 @@ I'd like to plan a week-long trip to Kyoto, Japan, arriving April 5 2027
 and leaving April 11 2027. It's cherry blossom season so please keep that
 in mind when picking spots.
 
-Before writing anything to TREK, do some research: look up what's worth
+Before writing anything to Travel Planner, do some research: look up what's worth
 visiting, figure out a logical day-by-day flow (group nearby spots together
 to avoid unnecessary travel), find a well-reviewed hotel in a central
 neighbourhood, and think about what kind of food and restaurant experiences
 are worth including.
 
-Once you have a solid plan, write the whole thing to TREK:
+Once you have a solid plan, write the whole thing to Travel Planner:
 - Create the trip
 - Add all the places you've researched with their real coordinates
 - Build out the daily itinerary with sensible visiting times
@@ -229,6 +229,6 @@ Currency: CHF. Use get_trip_summary at the end and give me a quick recap
 of everything that was added.
 ```
 
-PDF of the generated trip: [./docs/TREK-Generated-by-MCP.pdf](./docs/TREK-Generated-by-MCP.pdf)
+PDF of the generated trip: [./docs/Travel Planner-Generated-by-MCP.pdf](./docs/Travel Planner-Generated-by-MCP.pdf)
 
 ![trip](./docs/screenshot-trip-mcp.png)

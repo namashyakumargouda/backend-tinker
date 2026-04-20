@@ -1,0 +1,5 @@
+apiVersion: v2
+name: travel-planner
+version: 2.9.13
+description: Minimal Helm chart for Travel Planner app
+appVersion: "2.9.13"

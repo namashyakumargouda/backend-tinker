@@ -4,21 +4,21 @@ import { consumeEphemeralToken } from './services/ephemeralTokens';
 import { User } from './types';
 import http from 'node:http';
 
-interface NomadWebSocket extends WebSocket {
+interface TravelPlannerWebSocket extends WebSocket {
   isAlive: boolean;
 }
 
 // Room management: tripId -> Set<WebSocket>
-const rooms = new Map<number, Set<NomadWebSocket>>();
+const rooms = new Map<number, Set<TravelPlannerWebSocket>>();
 
 // Track which rooms each socket is in
-const socketRooms = new WeakMap<NomadWebSocket, Set<number>>();
+const socketRooms = new WeakMap<TravelPlannerWebSocket, Set<number>>();
 
 // Track user info per socket
-const socketUser = new WeakMap<NomadWebSocket, User>();
+const socketUser = new WeakMap<TravelPlannerWebSocket, User>();
 
 // Track unique socket ID
-const socketId = new WeakMap<NomadWebSocket, number>();
+const socketId = new WeakMap<TravelPlannerWebSocket, number>();
 let nextSocketId = 1;
 
 let wss: WebSocketServer | null = null;
@@ -26,7 +26,7 @@ let wss: WebSocketServer | null = null;
 // Per-connection message rate limiting
 const WS_MSG_LIMIT = 30;        // max messages
 const WS_MSG_WINDOW = 10_000;   // per 10 seconds
-const socketMsgCounts = new WeakMap<NomadWebSocket, { count: number; windowStart: number }>();
+const socketMsgCounts = new WeakMap<TravelPlannerWebSocket, { count: number; windowStart: number }>();
 
 /** Attaches a WebSocket server with JWT auth, room-based trip channels, and heartbeat keep-alive. */
 function setupWebSocket(server: http.Server): void {
@@ -49,7 +49,7 @@ function setupWebSocket(server: http.Server): void {
   const HEARTBEAT_INTERVAL = 30000; // 30 seconds
   const heartbeat = setInterval(() => {
     wss.clients.forEach((ws) => {
-      const nws = ws as NomadWebSocket;
+      const nws = ws as TravelPlannerWebSocket;
       if (nws.isAlive === false) return nws.terminate();
       nws.isAlive = false;
       nws.ping();
@@ -59,7 +59,7 @@ function setupWebSocket(server: http.Server): void {
   wss.on('close', () => clearInterval(heartbeat));
 
   wss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
-    const nws = ws as NomadWebSocket;
+    const nws = ws as TravelPlannerWebSocket;
     // Extract token from query param
     const url = new URL(req.url, 'http://localhost');
     const token = url.searchParams.get('token');
@@ -161,7 +161,7 @@ function setupWebSocket(server: http.Server): void {
   console.log('WebSocket server attached at /ws');
 }
 
-function leaveRoom(ws: NomadWebSocket, tripId: number): void {
+function leaveRoom(ws: TravelPlannerWebSocket, tripId: number): void {
   const room = rooms.get(tripId);
   if (room) {
     room.delete(ws);
@@ -194,7 +194,7 @@ function broadcastToUser(userId: number, payload: Record<string, unknown>, exclu
   if (!wss) return;
   const excludeNum = excludeSid ? Number(excludeSid) : null;
   for (const ws of wss.clients) {
-    const nws = ws as NomadWebSocket;
+    const nws = ws as TravelPlannerWebSocket;
     if (nws.readyState !== 1) continue;
     if (excludeNum && socketId.get(nws) === excludeNum) continue;
     const user = socketUser.get(nws);
@@ -208,7 +208,7 @@ function getOnlineUserIds(): Set<number> {
   const ids = new Set<number>();
   if (!wss) return ids;
   for (const ws of wss.clients) {
-    const nws = ws as NomadWebSocket;
+    const nws = ws as TravelPlannerWebSocket;
     if (nws.readyState !== 1) continue;
     const user = socketUser.get(nws);
     if (user) ids.add(user.id);

@@ -14,7 +14,7 @@ function resetDemoUser(): void {
   const { db, closeDb, reinitialize } = require('../db/database');
 
   // Save admin's current credentials and API keys (these should survive the reset)
-  const adminEmail = process.env.DEMO_ADMIN_EMAIL || 'admin@nomad.app';
+  const adminEmail = process.env.DEMO_ADMIN_EMAIL || 'admin@travelplanner.app';
   interface AdminData { password_hash: string; maps_api_key: string | null; openweather_api_key: string | null; unsplash_api_key: string | null; avatar: string | null; }
   let adminData: AdminData | undefined = undefined;
   try {

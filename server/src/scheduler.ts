@@ -212,7 +212,7 @@ function startTripReminders(): void {
   }, { timezone: tz });
 }
 
-// Version check: daily at 9 AM — notify admins if a new TREK release is available
+// Version check: daily at 9 AM — notify admins if a new Travel Planner release is available
 let versionCheckTask: ScheduledTask | null = null;
 
 function startVersionCheck(): void {

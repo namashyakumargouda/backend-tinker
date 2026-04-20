@@ -442,7 +442,7 @@ export function createMcpToken(
   userId: number,
   overrides: Partial<{ name: string; rawToken: string }> = {}
 ): TestMcpToken {
-  const rawToken = overrides.rawToken ?? `trek_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  const rawToken = overrides.rawToken ?? `travel-planner_test_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
   const tokenPrefix = rawToken.slice(0, 12);
   const result = db.prepare(

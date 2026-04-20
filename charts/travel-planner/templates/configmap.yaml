@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "trek.fullname" . }}-config
+  name: {{ include "travel-planner.fullname" . }}-config
   labels:
-    app: {{ include "trek.name" . }}
+    app: {{ include "travel-planner.name" . }}
 data:
   NODE_ENV: {{ .Values.env.NODE_ENV | quote }}
   PORT: {{ .Values.env.PORT | quote }}

@@ -22,7 +22,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 
 vi.mock('../../../src/db/database', () => dbMock);
 vi.mock('../../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -40,7 +40,7 @@ import { checkAndNotifyVersion } from '../../../src/services/adminService';
 function mockGitHubLatest(tagName: string, ok = true): void {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok,
-    json: async () => ({ tag_name: tagName, html_url: `https://github.com/mauriceboe/TREK/releases/tag/${tagName}` }),
+    json: async () => ({ tag_name: tagName, html_url: `https://github.com/mauriceboe/Travel Planner/releases/tag/${tagName}` }),
   }));
 }
 

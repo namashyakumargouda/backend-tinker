@@ -28,8 +28,8 @@ function makeRes(): { res: Response; status: ReturnType<typeof vi.fn>; json: Ret
 // ── extractToken ─────────────────────────────────────────────────────────────
 
 describe('extractToken', () => {
-  it('returns cookie value when trek_session cookie is set', () => {
-    const req = makeReq({ cookies: { trek_session: 'cookie-token' } });
+  it('returns cookie value when travel-planner_session cookie is set', () => {
+    const req = makeReq({ cookies: { 'travel-planner_session': 'cookie-token' } });
     expect(extractToken(req)).toBe('cookie-token');
   });
 
@@ -40,7 +40,7 @@ describe('extractToken', () => {
 
   it('prefers cookie over Authorization header when both are present', () => {
     const req = makeReq({
-      cookies: { trek_session: 'cookie-token' },
+      cookies: { 'travel-planner_session': 'cookie-token' },
       headers: { authorization: 'Bearer header-token' },
     });
     expect(extractToken(req)).toBe('cookie-token');
@@ -78,7 +78,7 @@ describe('authenticate', () => {
   it('returns 401 when JWT is invalid', () => {
     const next = vi.fn() as unknown as NextFunction;
     const { res, status } = makeRes();
-    authenticate(makeReq({ cookies: { trek_session: 'invalid.jwt.token' } }), res, next);
+    authenticate(makeReq({ cookies: { 'travel-planner_session': 'invalid.jwt.token' } }), res, next);
     expect(next).not.toHaveBeenCalled();
     expect(status).toHaveBeenCalledWith(401);
   });

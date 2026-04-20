@@ -33,7 +33,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 
 vi.mock('../../src/db/database', () => dbMock);
 vi.mock('../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel-planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -282,11 +282,11 @@ describe('Travel stats', () => {
 
 describe('Demo mode protections', () => {
   it('PROFILE-015 — demo user cannot upload avatar (demoUploadBlock)', async () => {
-    // demoUploadBlock checks for email === 'demo@nomad.app'
+    // demoUploadBlock checks for email === 'demo@travelplanner.app'
     testDb.prepare(
-      "INSERT INTO users (username, email, password_hash, role) VALUES ('demo', 'demo@nomad.app', 'x', 'user')"
+      "INSERT INTO users (username, email, password_hash, role) VALUES ('demo', 'demo@travelplanner.app', 'x', 'user')"
     ).run();
-    const demoUser = testDb.prepare('SELECT id FROM users WHERE email = ?').get('demo@nomad.app') as { id: number };
+    const demoUser = testDb.prepare('SELECT id FROM users WHERE email = ?').get('demo@travelplanner.app') as { id: number };
     process.env.DEMO_MODE = 'true';
 
     try {

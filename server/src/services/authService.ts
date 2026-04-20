@@ -211,7 +211,7 @@ export function getAppConfig(authenticatedUser: { id: number } | null) {
     require_mfa: requireMfaRow?.value === 'true',
     allowed_file_types: (db.prepare("SELECT value FROM app_settings WHERE key = 'allowed_file_types'").get() as { value: string } | undefined)?.value || 'jpg,jpeg,png,gif,webp,heic,pdf,doc,docx,xls,xlsx,txt,csv',
     demo_mode: isDemo,
-    demo_email: isDemo ? 'demo@trek.app' : undefined,
+    demo_email: isDemo ? 'demo@travelplanner.app' : undefined,
     demo_password: isDemo ? 'demo12345' : undefined,
     timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
     notification_channel: notifChannel,
@@ -231,7 +231,7 @@ export function demoLogin(): { error?: string; status?: number; token?: string; 
   if (process.env.DEMO_MODE !== 'true') {
     return { error: 'Not found', status: 404 };
   }
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get('demo@trek.app') as User | undefined;
+  const user = db.prepare('SELECT * FROM users WHERE email = ?').get('demo@travelplanner.app') as User | undefined;
   if (!user) return { error: 'Demo user not found', status: 500 };
   const token = generateToken(user);
   const safe = stripUserForClient(user) as Record<string, unknown>;
@@ -409,7 +409,7 @@ export function changePassword(
   if (isOidcOnlyMode()) {
     return { error: 'Password authentication is disabled.', status: 403 };
   }
-  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@trek.app') {
+  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@travelplanner.app') {
     return { error: 'Password change is disabled in demo mode.', status: 403 };
   }
 
@@ -431,7 +431,7 @@ export function changePassword(
 }
 
 export function deleteAccount(userId: number, userEmail: string, userRole: string): { error?: string; status?: number; success?: boolean } {
-  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@trek.app') {
+  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@travelplanner.app') {
     return { error: 'Account deletion is disabled in demo mode.', status: 403 };
   }
   if (userRole === 'admin') {
@@ -799,7 +799,7 @@ export function getTravelStats(userId: number) {
 // ---------------------------------------------------------------------------
 
 export function setupMfa(userId: number, userEmail: string): { error?: string; status?: number; secret?: string; otpauth_url?: string; qrPromise?: Promise<string> } {
-  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@nomad.app') {
+  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@travelplanner.app') {
     return { error: 'MFA is not available in demo mode.', status: 403 };
   }
   const row = db.prepare('SELECT mfa_enabled FROM users WHERE id = ?').get(userId) as { mfa_enabled: number } | undefined;
@@ -810,7 +810,7 @@ export function setupMfa(userId: number, userEmail: string): { error?: string; s
   try {
     secret = authenticator.generateSecret();
     mfaSetupPending.set(userId, { secret, exp: Date.now() + MFA_SETUP_TTL_MS });
-    otpauth_url = authenticator.keyuri(userEmail, 'TREK', secret);
+    otpauth_url = authenticator.keyuri(userEmail, 'Travel Planner', secret);
   } catch (err) {
     console.error('[MFA] Setup error:', err);
     return { error: 'MFA setup failed', status: 500 };
@@ -848,7 +848,7 @@ export function disableMfa(
   userEmail: string,
   body: { password?: string; code?: string }
 ): { error?: string; status?: number; success?: boolean; mfa_enabled?: boolean } {
-  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@nomad.app') {
+  if (process.env.DEMO_MODE === 'true' && userEmail === 'demo@travelplanner.app') {
     return { error: 'MFA cannot be changed in demo mode.', status: 403 };
   }
   const policy = db.prepare("SELECT value FROM app_settings WHERE key = 'require_mfa'").get() as { value: string } | undefined;
@@ -948,7 +948,7 @@ export function createMcpToken(userId: number, name?: string): { error?: string;
   const tokenCount = (db.prepare('SELECT COUNT(*) as count FROM mcp_tokens WHERE user_id = ?').get(userId) as { count: number }).count;
   if (tokenCount >= 10) return { error: 'Maximum of 10 tokens per user reached', status: 400 };
 
-  const rawToken = 'trek_' + randomBytes(24).toString('hex');
+  const rawToken = 'travel-planner_' + randomBytes(24).toString('hex');
   const tokenHash = createHash('sha256').update(rawToken).digest('hex');
   const tokenPrefix = rawToken.slice(0, 13);
 
@@ -997,7 +997,7 @@ export function createResourceToken(userId: number, purpose?: string): { error?:
 export function isDemoUser(userId: number): boolean {
   if (process.env.DEMO_MODE !== 'true') return false;
   const user = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string } | undefined;
-  return user?.email === 'demo@nomad.app';
+  return user?.email === 'demo@travelplanner.app';
 }
 
 export function verifyMcpToken(rawToken: string): User | null {

@@ -66,7 +66,7 @@ export function enforceGlobalMfaPolicy(req: Request, res: Response, next: NextFu
 
   if (process.env.DEMO_MODE === 'true') {
     const demo = db.prepare('SELECT email FROM users WHERE id = ?').get(userId) as { email: string } | undefined;
-    if (demo?.email === 'demo@trek.app' || demo?.email === 'demo@nomad.app') {
+    if (demo?.email === 'demo@trek.app' || demo?.email === 'demo@travelplanner.app') {
       next();
       return;
     }

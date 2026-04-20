@@ -266,7 +266,7 @@ export function createApp(): express.Application {
   app.use('/api/notifications', notificationRoutes);
   app.use('/api', shareRoutes);
 
-  app.delete('/mcp', mcpHandler);
+  app.all('/mcp', mcpHandler);
 
   // Swagger Documentation
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));

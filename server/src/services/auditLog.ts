@@ -19,7 +19,7 @@ const C = {
 
 const logsDir = path.join(process.cwd(), 'data/logs');
 try { fs.mkdirSync(logsDir, { recursive: true }); } catch {}
-const logFilePath = path.join(logsDir, 'trek.log');
+const logFilePath = path.join(logsDir, 'travel-planner.log');
 
 function rotateIfNeeded(): void {
   try {

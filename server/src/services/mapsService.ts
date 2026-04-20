@@ -43,7 +43,7 @@ interface GooglePlaceDetails extends GooglePlaceResult {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const UA = 'TREK Travel Planner (https://github.com/mauriceboe/NOMAD)';
+const UA = 'Travel Planner (https://github.com/mauriceboe/Travel-Planner)';
 
 // ── Photo cache ──────────────────────────────────────────────────────────────
 
@@ -519,7 +519,7 @@ export async function resolveGoogleMapsUrl(url: string): Promise<{ lat: number; 
   // Reverse geocode to get address
   const nominatimRes = await fetch(
     `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,
-    { headers: { 'User-Agent': 'TREK-Travel-Planner/1.0' }, signal: AbortSignal.timeout(8000) }
+    { headers: { 'User-Agent': 'Travel-Planner/1.0' }, signal: AbortSignal.timeout(8000) }
   );
   const nominatim = await nominatimRes.json() as { display_name?: string; name?: string; address?: Record<string, string> };
 

@@ -25,7 +25,7 @@ const { testDb, dbMock } = vi.hoisted(() => {
 
 vi.mock('../../../src/db/database', () => dbMock);
 vi.mock('../../../src/config', () => ({
-  JWT_SECRET: 'test-jwt-secret-for-trek-testing-only',
+  JWT_SECRET: 'test-jwt-secret-for-travel-planner-testing-only',
   ENCRYPTION_KEY: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2a3b4c5d6a7b8c9d0e1f2',
   updateJwtSecret: () => {},
 }));
@@ -88,7 +88,7 @@ describe('Tool: mark_country_visited', () => {
 
   it('blocks demo user', async () => {
     process.env.DEMO_MODE = 'true';
-    const { user } = createUser(testDb, { email: 'demo@nomad.app' });
+    const { user } = createUser(testDb, { email: 'demo@travelplanner.app' });
     await withHarness(user.id, async (h) => {
       const result = await h.client.callTool({ name: 'mark_country_visited', arguments: { country_code: 'DE' } });
       expect(result.isError).toBe(true);
@@ -124,7 +124,7 @@ describe('Tool: unmark_country_visited', () => {
 
   it('blocks demo user', async () => {
     process.env.DEMO_MODE = 'true';
-    const { user } = createUser(testDb, { email: 'demo@nomad.app' });
+    const { user } = createUser(testDb, { email: 'demo@travelplanner.app' });
     createVisitedCountry(testDb, user.id, 'IT');
     await withHarness(user.id, async (h) => {
       const result = await h.client.callTool({ name: 'unmark_country_visited', arguments: { country_code: 'IT' } });
@@ -164,7 +164,7 @@ describe('Tool: create_bucket_list_item', () => {
 
   it('blocks demo user', async () => {
     process.env.DEMO_MODE = 'true';
-    const { user } = createUser(testDb, { email: 'demo@nomad.app' });
+    const { user } = createUser(testDb, { email: 'demo@travelplanner.app' });
     await withHarness(user.id, async (h) => {
       const result = await h.client.callTool({ name: 'create_bucket_list_item', arguments: { name: 'Nowhere' } });
       expect(result.isError).toBe(true);
@@ -208,7 +208,7 @@ describe('Tool: delete_bucket_list_item', () => {
 
   it('blocks demo user', async () => {
     process.env.DEMO_MODE = 'true';
-    const { user } = createUser(testDb, { email: 'demo@nomad.app' });
+    const { user } = createUser(testDb, { email: 'demo@travelplanner.app' });
     const item = createBucketListItem(testDb, user.id);
     await withHarness(user.id, async (h) => {
       const result = await h.client.callTool({ name: 'delete_bucket_list_item', arguments: { itemId: item.id } });

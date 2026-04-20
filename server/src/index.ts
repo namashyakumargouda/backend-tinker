@@ -28,13 +28,13 @@ const server = app.listen(PORT, () => {
   const origins = process.env.ALLOWED_ORIGINS || '(same-origin)';
   const banner = [
     '──────────────────────────────────────',
-    '  TREK API started',
+    '  Travel Planner API started',
     `  Port:        ${PORT}`,
     `  Environment: ${process.env.NODE_ENV || 'development'}`,
     `  Timezone:    ${tz}`,
     `  Origins:     ${origins}`,
     `  Log level:   ${LOG_LVL}`,
-    `  Log file:    /app/data/logs/trek.log`,
+    `  Log file:    /app/data/logs/travel-planner.log`,
     `  PID:         ${process.pid}`,
     `  User:        uid=${process.getuid?.()} gid=${process.getgid?.()}`,
     '──────────────────────────────────────',

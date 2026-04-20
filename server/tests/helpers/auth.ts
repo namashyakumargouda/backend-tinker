@@ -22,7 +22,7 @@ export function generateToken(userId: number, extraClaims: Record<string, unknow
  *   request(app).get('/api/...').set('Cookie', authCookie(userId))
  */
 export function authCookie(userId: number): string {
-  return `trek_session=${generateToken(userId)}`;
+  return `travel-planner_session=${generateToken(userId)}`;
 }
 
 /**

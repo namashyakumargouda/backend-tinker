@@ -213,7 +213,7 @@ export async function restoreFromZip(zipPath: string): Promise<RestoreResult> {
       for (const table of requiredTables) {
         if (!tableNames.has(table)) {
           fs.rmSync(extractDir, { recursive: true, force: true });
-          return { success: false, error: `Uploaded database is missing required table: ${table}. This does not appear to be a TREK backup.`, status: 400 };
+          return { success: false, error: `Uploaded database is missing required table: ${table}. This does not appear to be a Travel Planner backup.`, status: 400 };
         }
       }
     } catch (err) {

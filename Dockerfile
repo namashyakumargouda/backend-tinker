@@ -1,4 +1,4 @@
-# Production server for Headless TREK Backend
+# Production server for Headless Travel Planner Backend
 FROM node:22-alpine
 
 WORKDIR /app

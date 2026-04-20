@@ -1,6 +1,6 @@
 
 image:
-  repository: mauriceboe/trek
+  repository: mauriceboe/travel-planner
   # tag: latest
   pullPolicy: IfNotPresent
 
