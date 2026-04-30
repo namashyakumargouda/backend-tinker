@@ -14,31 +14,7 @@ import { enforceGlobalMfaPolicy } from './middleware/mfaPolicy';
 import { authenticate } from './middleware/auth';
 import { db } from './db/database';
 
-import authRoutes from './routes/auth';
-import tripsRoutes from './routes/trips';
-import daysRoutes, { accommodationsRouter as accommodationsRoutes } from './routes/days';
-import placesRoutes from './routes/places';
-import assignmentsRoutes from './routes/assignments';
-import packingRoutes from './routes/packing';
-import todoRoutes from './routes/todo';
-import tagsRoutes from './routes/tags';
-import categoriesRoutes from './routes/categories';
-import adminRoutes from './routes/admin';
-import mapsRoutes from './routes/maps';
-import filesRoutes from './routes/files';
-import reservationsRoutes from './routes/reservations';
-import dayNotesRoutes from './routes/dayNotes';
-import weatherRoutes from './routes/weather';
-import settingsRoutes from './routes/settings';
-import budgetRoutes from './routes/budget';
-import collabRoutes from './routes/collab';
-import backupRoutes from './routes/backup';
-import oidcRoutes from './routes/oidc';
-import vacayRoutes from './routes/vacay';
-import atlasRoutes from './routes/atlas';
-import memoriesRoutes from './routes/memories/unified';
-import notificationRoutes from './routes/notifications';
-import shareRoutes from './routes/share';
+import apiRouter from './routes/api';
 import { mcpHandler } from './mcp';
 import { Addon } from './types';
 import { getPhotoProviderConfig } from './services/memories/helpersService';
@@ -176,95 +152,8 @@ export function createApp(): express.Application {
     res.status(401).send('Authentication required');
   });
 
-  // API Routes
-  app.use('/api/auth', authRoutes);
-  app.use('/api/auth/oidc', oidcRoutes);
-  app.use('/api/trips', tripsRoutes);
-  app.use('/api/trips/:tripId/days', daysRoutes);
-  app.use('/api/trips/:tripId/accommodations', accommodationsRoutes);
-  app.use('/api/trips/:tripId/places', placesRoutes);
-  app.use('/api/trips/:tripId/packing', packingRoutes);
-  app.use('/api/trips/:tripId/todo', todoRoutes);
-  app.use('/api/trips/:tripId/files', filesRoutes);
-  app.use('/api/trips/:tripId/budget', budgetRoutes);
-  app.use('/api/trips/:tripId/collab', collabRoutes);
-  app.use('/api/trips/:tripId/reservations', reservationsRoutes);
-  app.use('/api/trips/:tripId/days/:dayId/notes', dayNotesRoutes);
-  app.get('/api/health', (_req: Request, res: Response) => res.json({ status: 'ok' }));
-  app.use('/api', assignmentsRoutes);
-  app.use('/api/tags', tagsRoutes);
-  app.use('/api/categories', categoriesRoutes);
-  app.use('/api/admin', adminRoutes);
-
-  // Addons list endpoint
-  app.get('/api/addons', authenticate, (_req: Request, res: Response) => {
-    const addons = db.prepare('SELECT id, name, type, icon, enabled FROM addons WHERE enabled = 1 ORDER BY sort_order').all() as Pick<Addon, 'id' | 'name' | 'type' | 'icon' | 'enabled'>[];
-    const providers = db.prepare(`
-      SELECT id, name, icon, enabled, sort_order
-      FROM photo_providers
-      WHERE enabled = 1
-      ORDER BY sort_order, id
-    `).all() as Array<{ id: string; name: string; icon: string; enabled: number; sort_order: number }>;
-    const fields = db.prepare(`
-      SELECT provider_id, field_key, label, input_type, placeholder, required, secret, settings_key, payload_key, sort_order
-      FROM photo_provider_fields
-      ORDER BY sort_order, id
-    `).all() as Array<{
-      provider_id: string;
-      field_key: string;
-      label: string;
-      input_type: string;
-      placeholder?: string | null;
-      required: number;
-      secret: number;
-      settings_key?: string | null;
-      payload_key?: string | null;
-      sort_order: number;
-    }>;
-
-    const fieldsByProvider = new Map<string, typeof fields>();
-    for (const field of fields) {
-      const arr = fieldsByProvider.get(field.provider_id) || [];
-      arr.push(field);
-      fieldsByProvider.set(field.provider_id, arr);
-    }
-
-    res.json({
-      addons: [
-        ...addons.map(a => ({ ...a, enabled: !!a.enabled })),
-        ...providers.map(p => ({
-          id: p.id,
-          name: p.name,
-          type: 'photo_provider',
-          icon: p.icon,
-          enabled: !!p.enabled,
-          config: getPhotoProviderConfig(p.id),
-          fields: (fieldsByProvider.get(p.id) || []).map(f => ({
-            key: f.field_key,
-            label: f.label,
-            input_type: f.input_type,
-            placeholder: f.placeholder || '',
-            required: !!f.required,
-            secret: !!f.secret,
-            settings_key: f.settings_key || null,
-            payload_key: f.payload_key || null,
-            sort_order: f.sort_order,
-          })),
-        })),
-      ],
-    });
-  });
-
-  // Addon routes
-  app.use('/api/addons/vacay', vacayRoutes);
-  app.use('/api/addons/atlas', atlasRoutes);
-  app.use('/api/integrations/memories', memoriesRoutes);
-  app.use('/api/maps', mapsRoutes);
-  app.use('/api/weather', weatherRoutes);
-  app.use('/api/settings', settingsRoutes);
-  app.use('/api/backup', backupRoutes);
-  app.use('/api/notifications', notificationRoutes);
-  app.use('/api', shareRoutes);
+  // Centralized API Routes
+  app.use('/api', apiRouter);
 
   app.all('/mcp', mcpHandler);
 
